@@ -556,10 +556,12 @@ function addSongToPlaylist(user, password, songId, response) {
 					var arr = resstr.match(re);
 					if (arr != null && arr.length > 1) {
 						playlists[index].push(songId);
-						let re2 = /title\\\":\\\"([^\\]+)\\\",\\\"/;
+						let re2 = /title\\\":\\\"(.*?)\\\",\\\"l/; // Lazy quantifier really helps here.
 						var arr2 = resstr.match(re2);
 						if (arr2 != null && arr2.length > 1) {
 							var songTitle = arr2[1];
+							// Remove backslashes to not mess up the list
+							songTitle = songTitle.replace(/\\/g, '');
 							console.log(songTitle);
 							//console.log(songTitle.length);
 							playlistsCommon[index].push(songTitle);

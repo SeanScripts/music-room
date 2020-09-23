@@ -49,20 +49,37 @@
 		.del {
 			font-size: 16px;
 		}
-		.iframeWrapper {
+		.iframeWrapperSmall {
 			display: inline-block;
 			position: relative;
+			vertical-align: top;
 		}
-		.iframeWrapper:after {
+		.iframeWrapperSmall:after {
 			content: "";
 			position: absolute;
 			z-index: 1;
+			left: 0%;
+			top: 10%;
 			width: 100%;
-			height: 100%;
+			height: 80%;
+			background-color: #80808000;
+		}
+		.iframeWrapperBig {
+			display: inline-block;
+			position: relative;
+			vertical-align: top;
+		}
+		.iframeWrapperBig:after {
+			content: "";
+			position: absolute;
+			z-index: 1;
 			left: 0;
 			top: 0;
+			width: 100%;
+			height: 100%;
+			background-color: #80808000;
 		}
-		.iframeWrapper iframe {
+		iframe {
 			vertical-align: top;
 		}
 		#playlist {
@@ -81,9 +98,19 @@
 		var name = '{% name %}';
 		var password = '{% password %}'; // plaintext.
 		
+		// big iff true
+		function setWrapperSize(b) {
+			//TODO: This is broken right now.
+			
+			var ifw = document.getElementById('playerdiv');
+			ifw.className = (b) ? 'iframeWrapperBig' : 'iframeWrapperSmall';
+			
+		}
+		
 		var player = null;
 		function onYouTubeIframeAPIReady() {
 			player = new YT.Player('player', {});
+			setWrapperSize(true);
 		}
 		
 		var paused = true;
@@ -98,13 +125,14 @@
 			// Run this periodically to fetch new data
 			getUserList();
 			getDJList();
-			getCurrentDJ();
+			var currdj = getCurrentDJ();
 			if (!paused) {
 				getSong();
 			}
 		}
 		
 		function togglePause() {
+			console.log('Toggle pause');
 			paused = !paused;
 			if (!paused) {
 				getSong();
@@ -196,9 +224,17 @@
 						xhttp2.onreadystatechange = function() {
 							if (this.readyState == 4 && this.status == 200) {
 								//console.log(time, lastTime);
-								console.log('Changing song');
-								currentSong = xhttp2.responseText;
-								document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=0&autoplay=1&start=' + time;
+								if (xhttp2.responseText != 'https://www.youtube.com/embed/') {
+									console.log('Changing song');
+									currentSong = xhttp2.responseText;
+									document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=1&autoplay=1&start=' + time;
+									setWrapperSize(false);
+								}
+								else {
+									lastTime = 0;
+									currentSong = xhttp2.responseText;
+									setWrapperSize(true);
+								}
 							}
 						};
 						xhttp2.open('GET', 'song', true);
@@ -216,8 +252,15 @@
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
 				if (this.readyState == 4 && this.status == 200) {
-					document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=0&autoplay=1&start=' + xhttp.responseText;
-					lastTime = parseInt(xhttp.responseText)+1;
+					if (currentSong != 'https://www.youtube.com/embed/') {
+						document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=1&autoplay=1&start=' + xhttp.responseText;
+						lastTime = parseInt(xhttp.responseText)+1;
+						setWrapperSize(false);
+					}
+					else {
+						lastTime = 0;
+						setWrapperSize(true);
+					}
 				}
 			};
 			xhttp.open('GET', 'time', true);
@@ -316,7 +359,7 @@
 					<p id="responsetemp"></p>
 				</td>
 				<td id="videobox" width="50%">
-					<div id="playerdiv" class="iframeWrapper" onclick="togglePause()">
+					<div id="playerdiv" class="iframeWrapperBig" onclick="togglePause()">
 						<iframe id="player" width="800px" height="600px" src="https://www.youtube.com/embed/" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 					</div>
 				</td>
