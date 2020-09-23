@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Music Room</title>
+		<meta name="description" content="Music Room">
+		<meta name="author" content="Sean O'Neil">
+		<style>
+		body {
+			text-align: center;
+			background-color: #000000;
+			background-image: url('/synthwave.jpg');
+			color: #FFFFFF;
+			font-size: 20px;
+		}
+		h1 {
+			margin-top: 5px;
+			margin-bottom: 5px;
+		}
+		h3 {
+			margin-top: 3px;
+			margin-bottom: 3px;
+		}
+		h4 {
+			margin-top: 2px;
+			margin-bottom: 2px;
+		}
+		ol {
+			margin-top: 3px;
+			margin-bottom: 3px;
+		}
+		li {
+			text-align: left;
+		}
+		.maintable {
+			width: 100%;
+			background-color: #000000C0;
+		}
+		input {
+			background-color: #808080;
+			color: #FFFFFF;
+			font-size: 20px;
+		}
+		button {
+			background-color: #404040;
+			color: #FFFFFF;
+			font-size: 20px;
+		}
+		.del {
+			font-size: 16px;
+		}
+		.iframeWrapper {
+			display: inline-block;
+			position: relative;
+		}
+		.iframeWrapper:after {
+			content: "";
+			position: absolute;
+			z-index: 1;
+			width: 100%;
+			height: 100%;
+			left: 0;
+			top: 0;
+		}
+		.iframeWrapper iframe {
+			vertical-align: top;
+		}
+		#playlist {
+			height: 400px;
+			overflow-y: scroll;
+		}
+		</style>
+	</head>
+	<body onload="init()">
+		<script>
+		var tag = document.createElement('script');
+		tag.src = "https://www.youtube.com/iframe_api";
+		var firstScriptTag = document.getElementsByTagName('script')[0];
+		firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+		
+		var name = '{% name %}';
+		var password = '{% password %}'; // plaintext.
+		
+		var player = null;
+		function onYouTubeIframeAPIReady() {
+			player = new YT.Player('player', {});
+		}
+		
+		var paused = true;
+		var currentSong = 'https://www.youtube.com/embed/';
+		var lastTime = null;
+		
+		function init() {
+			getPlaylist();
+		}
+		
+		function upkeep() {
+			// Run this periodically to fetch new data
+			getUserList();
+			getDJList();
+			getCurrentDJ();
+			if (!paused) {
+				getSong();
+			}
+		}
+		
+		function togglePause() {
+			paused = !paused;
+			if (!paused) {
+				getSong();
+				getTime();
+			}
+			else {
+				if (player != null) {
+					player.pauseVideo();
+				}
+			}
+		}
+		
+		function getCurrentDJ() {
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					document.getElementById('djcurr').innerHTML = xhttp.responseText;
+				}
+			};
+			xhttp.open('GET', 'dj', true);
+			xhttp.send();
+		}
+		
+		function getPlaylist() {
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					var playlist = xhttp.responseText.split('\\');
+					if (playlist.length > 0 && playlist[0] != '') {
+						console.log(playlist);
+						var playlisttext = '';
+						for (var i = 0; i < playlist.length; i++) {
+							playlisttext += "<li><button class=\"del\" id=\"del"+i+"\" onclick=\"remove("+i+")\">❌</button>&nbsp;<span id=\"list"+i+"\">"+playlist[i]+"</span></li>"
+						}
+						document.getElementById('playlist').innerHTML = playlisttext;
+					}
+				}
+			};
+			xhttp.open('GET', 'playlist?name='+name+'&password='+password, true);
+			xhttp.send();
+		}
+		
+		function getUserList() {
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					var userlist = xhttp.responseText.split('\\');
+					//console.log(userlist);
+					var userstext = '';
+					for (var i = 0; i < userlist.length; i++) {
+						userstext += userlist[i];
+						if (i < userlist.length-1) {
+							userstext += ', ';
+						}
+					}
+					document.getElementById('users').innerHTML = userstext;
+				}
+			};
+			xhttp.open('GET', 'list', true);
+			xhttp.send();
+		}
+		
+		function getDJList() {
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					var djlist = xhttp.responseText.split('\\');
+					for (var i = 0; i < 10; i++) {
+						let v = ''
+						if (i < djlist.length) {
+							v = djlist[i]
+						}
+						document.getElementById('dj'+i).innerHTML = v
+					}
+				}
+			};
+			xhttp.open('GET', 'queue', true);
+			xhttp.send();
+		}
+		
+		function getSong() {
+			var responded = false;
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					var time = parseInt(xhttp.responseText);
+					if (lastTime == null || time < lastTime) {
+						var xhttp2 = new XMLHttpRequest();
+						xhttp2.onreadystatechange = function() {
+							if (this.readyState == 4 && this.status == 200) {
+								//console.log(time, lastTime);
+								console.log('Changing song');
+								currentSong = xhttp2.responseText;
+								document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=0&autoplay=1&start=' + time;
+							}
+						};
+						xhttp2.open('GET', 'song', true);
+						xhttp2.send();
+					}
+					lastTime = parseInt(time)+1; // Add one to prevent any edge cases... Hopefully?
+				}
+			};
+			xhttp.open('GET', 'time', true);
+			xhttp.send();
+			
+		}
+		
+		function getTime() {
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=0&autoplay=1&start=' + xhttp.responseText;
+					lastTime = parseInt(xhttp.responseText)+1;
+				}
+			};
+			xhttp.open('GET', 'time', true);
+			xhttp.send();
+		}
+		
+		function add() {
+			var songId = document.getElementById('tempsongid').value;
+			console.log(songId);
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					document.getElementById('responsetemp').innerHTML = xhttp.responseText;
+				}
+			};
+			xhttp.open('GET', 'add?name='+name+'&password='+password+'&songId='+songId, true);
+			xhttp.send();
+		}
+		
+		function listAdd() {
+			var songId = document.getElementById('songid').value;
+			console.log(songId);
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					document.getElementById('response').innerHTML = xhttp.responseText;
+					getPlaylist();
+				}
+			};
+			xhttp.open('GET', 'listadd?name='+name+'&password='+password+'&songId='+songId, true);
+			xhttp.send();
+		}
+		
+		function togglePlaylist() {
+			if (document.getElementById('toggleplaylist').innerHTML == 'Activate') {
+				document.getElementById('toggleplaylist').innerHTML = 'Deactivate';
+			}
+			else {
+				document.getElementById('toggleplaylist').innerHTML = 'Activate';
+			}
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					//TODO: Maybe don't change the button if there was an error? Idk
+				}
+			};
+			xhttp.open('GET', 'toggle?name='+name+'&password='+password, true);
+			xhttp.send();
+		}
+		
+		function remove(i) {
+			console.log('Deleting song '+i);
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					// Get updated playlist (don't deal with trying to rearrange the indices yourself.)
+					getPlaylist();
+				}
+			};
+			xhttp.open('GET', 'remove?name='+name+'&password='+password+'&idx='+i, true);
+			xhttp.send();
+		}
+		
+		//TODO: Add control for mute/volume?
+		
+		setInterval(upkeep, 1000);
+		
+		</script>
+		<table class="maintable">
+			<tr>
+				<td colspan="3">
+					<h1>Music Room</h1>
+				</td>
+			</tr>
+			<tr>
+				<td id="queuebox" width="25%">
+					<h3>Current DJ: <span id="djcurr">None</span></h3>
+					<h4 style="text-align: left;">Next up:</h4>
+					<ol>
+						<li id="dj0"></li>
+						<li id="dj1"></li>
+						<li id="dj2"></li>
+						<li id="dj3"></li>
+						<li id="dj4"></li>
+						<li id="dj5"></li>
+						<li id="dj6"></li>
+						<li id="dj7"></li>
+						<li id="dj8"></li>
+						<li id="dj9"></li>
+					</ol>
+					<br>
+					<h4>Temporary Song</h4>
+					<p>Enter an ID to add a temporary song:</p>
+					<input id="tempsongid" type="text" name="tempsongid"></input>
+					<button onclick="add()">Submit</button>
+					<p id="responsetemp"></p>
+				</td>
+				<td id="videobox" width="50%">
+					<div id="playerdiv" class="iframeWrapper" onclick="togglePause()">
+						<iframe id="player" width="800px" height="600px" src="https://www.youtube.com/embed/" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+					</div>
+				</td>
+				<td id="playlistbox" width="25%">
+					<h3>Playlist</h3>
+					<div id="playlistdiv">
+						<ol id="playlist">
+						</ol>
+					</div>
+					<button id="toggleplaylist" onclick="togglePlaylist()">Activate</button>
+					<br>
+					<h4>Add to Playlist</h4>
+					<!--<p>Enter an ID to add to your list:</p>-->
+					<input id="songid" type="text" name="songid"></input>
+					<button onclick="listAdd()">Submit</button>
+					<p id="response"></p>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="3">
+				<p>Users: <span id="users"></span></p>
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>
