@@ -11,14 +11,17 @@ var qs = require('querystring');
 // Inside the prompt that comes up:
 // .databases
 // Then .quit to exit.
-var sqlite3 = require('sqlite3');
+
+// If using database (not yet)
+//var sqlite3 = require('sqlite3');
+
 var baseDirectory = __dirname;   // or whatever base directory you want
 
 // Add files to this list that should not be accessible by users
 // Examples are this file, any other server files, database files, probably text files for notes/ideas, etc
 var blocked_paths = ['/nodetest.js', '/test.db', '/header.html', '/footer.html', '/example_secret_page.html', '/music-room.html'];
 
-var port = 3000;
+var port = process.env.PORT || 80; // Required for Heroku. Assuming this won't just give an error.
 
 // Load in the header and footer files (which are marked as html but are somewhat incomplete)
 //var header = fs.readFileSync(baseDirectory + '/header.html').toString();
@@ -26,6 +29,9 @@ var port = 3000;
 
 // Testing out connecting to a database, creating a table, adding some data, querying the data, and closing the database
 // Not meant to be run asynchronously, but only as an initial setup
+
+// Database functions which aren't used here
+/*
 function testDatabase() {
 	var db = new sqlite3.Database(baseDirectory + '/test.db', sqlite3.OPEN_READWRITE, (err) => {
 		if (err) {
@@ -94,7 +100,7 @@ function query_callback(sql, callback) {
 	
 	//return callback(null, results);
 }
-
+*/
 
 // Actual code
 
