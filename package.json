@@ -2,7 +2,7 @@
   "name": "the-music-room",
   "version": "1.0.0",
   "description": "A small room for friends to play music together",
-  "main": "nodetest.js",
+  "main": "server.js",
   "dependencies": {
     "sqlite3": "^5.0.0"
   },
