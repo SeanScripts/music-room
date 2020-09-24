@@ -169,6 +169,9 @@
 						}
 						document.getElementById('playlist').innerHTML = playlisttext;
 					}
+					else {
+						document.getElementById('playlist').innerHTML = '';
+					}
 				}
 			};
 			xhttp.open('GET', 'playlist?name='+name+'&password='+password, true);
@@ -394,6 +397,8 @@
 			<li>Messages about adding songs do not disappear</li>
 			<li>On mobile, clicking on the (hidden) live button will set the video to a thumbnail but not play (maybe because autoplay is disabled on mobile by default)</li>
 			<li>On mobile, desktop version of site seems to work fine, though</li>
+			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins?</li>
+			<li>Should add some small delay between videos</li>
 		</ul>
 	</body>
 </html>

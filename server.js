@@ -383,6 +383,12 @@ function getCurrentTimeInVideo() {
 // TODO: Update queue
 function updateQueue() {
 	console.log('Start update queue');
+	console.log('Current Queue Index: '+currQueueIndex);
+	console.log('userQueueOrder: '+userQueueOrder);
+	console.log('users: '+users);
+	console.log('playlists: '+playlists);
+	console.log('indices: '+playlistIndices);
+	
 	if (userQueueOrder.length != 0) {
 		// Use userQueueOrder along with usingPlaylist
 		var uq = [];
