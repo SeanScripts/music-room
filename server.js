@@ -261,7 +261,7 @@ function startSong(user, songId) {
 	var userIndex = users.indexOf(user);
 	if (tempSongs[userIndex] != '') {
 		// Remove the temporary song if necessary
-		tempSongs[userIndex] == '';
+		tempSongs[userIndex] = '';
 		console.log('Removing temp song');
 		if (!usingPlaylist[userIndex]) {
 			// Remove user from the queue entirely
