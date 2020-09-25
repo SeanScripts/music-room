@@ -100,8 +100,6 @@
 		
 		// big iff true
 		function setWrapperSize(b) {
-			//TODO: This is broken right now.
-			
 			var ifw = document.getElementById('playerdiv');
 			ifw.className = (b) ? 'iframeWrapperBig' : 'iframeWrapperSmall';
 			
@@ -115,6 +113,8 @@
 		
 		var paused = false;
 		var unpausing = false;
+		var muted = 1; // Initially muted because otherwise the video won't autoplay?
+		var unmuteApplied = false; // Only unmute at the beginning. Don't unmute every click
 		var currentSong = 'https://www.youtube.com/embed/';
 		var lastTime = 0;
 		
@@ -147,6 +147,7 @@
 			xhttp.send();
 		}
 		
+		/*
 		function upkeep() {
 			// Run this periodically to fetch new data
 			getUserList();
@@ -156,6 +157,7 @@
 				getSong();
 			}
 		}
+		*/
 		
 		function updatePlaylistActiveSong(index) {
 			// TODO: Simple class toggle for a class that I haven't made yet
@@ -171,6 +173,9 @@
 					//getTime();
 					unpausing = true;
 					update();
+					if (player != null) {
+						player.playVideo();
+					}
 					//unpausing = false; //This is bad, it asynchronously sets it back immediately...
 				}
 				else {
@@ -181,6 +186,7 @@
 			}
 		}
 		
+		/*
 		function getCurrentDJ() {
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
@@ -191,6 +197,7 @@
 			xhttp.open('GET', 'dj', true);
 			xhttp.send();
 		}
+		*/
 		
 		function getPlaylist() {
 			var xhttp = new XMLHttpRequest();
@@ -214,6 +221,7 @@
 			xhttp.send();
 		}
 		
+		/*
 		function getUserList() {
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
@@ -224,6 +232,7 @@
 			xhttp.open('GET', 'list', true);
 			xhttp.send();
 		}
+		*/
 		
 		function updateUserList(listText) {
 			var userlist = listText.split('\\');
@@ -238,6 +247,7 @@
 			document.getElementById('users').innerHTML = userstext;
 		}
 		
+		/*
 		function getDJList() {
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
@@ -248,6 +258,7 @@
 			xhttp.open('GET', 'queue', true);
 			xhttp.send();
 		}
+		*/
 		
 		function updateDJList(listText) {
 			var djlist = listText.split('\\');
@@ -261,6 +272,7 @@
 		}
 		
 		// This is obsolete now, as are many of these functions
+		/*
 		function getSong() {
 			var responded = false;
 			var xhttp = new XMLHttpRequest();
@@ -294,8 +306,8 @@
 			};
 			xhttp.open('GET', 'time', true);
 			xhttp.send();
-			
 		}
+		*/
 		
 		function updateSong(newSong, newTime) {
 			//console.log('Updating song');
@@ -303,9 +315,24 @@
 			// However, it becomes necessary because the same song can play twice in a row, and the time index is the only thing that helps you.
 			if (currentSong == 'https://www.youtube.com/embed/' || unpausing || newTime < lastTime) {
 				if (newSong != 'https://www.youtube.com/embed/') {
-					console.log('Changing song');
-					currentSong = newSong;
-					document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=1&autoplay=1&start=' + newTime;
+					// TODO: Update this to use the Youtube API better
+					if (currentSong == newSong) {
+						if (player != null) {
+							// Seek to the right time in video (this should be faster than reloading the video)
+							player.seekTo(newTime, true);
+						}
+						else {
+							// Fall back on what I know works
+							console.log('Falling back, not using API');
+							document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=1&autoplay=1&mute='+muted+'&start=' + newTime;
+						}
+					}
+					else {
+						console.log('Changing song');
+						currentSong = newSong;
+						// Mute added to align with Google's policies about autoplay
+						document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=1&autoplay=1&mute='+muted+'&start=' + newTime;
+					}
 					setWrapperSize(false);
 					unpausing = false; // Has to be set here or it will be asynchronously reset too early!
 				}
@@ -319,6 +346,7 @@
 			//lastTime = newTime;
 		}
 		
+		/*
 		function getTime() {
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
@@ -337,6 +365,7 @@
 			xhttp.open('GET', 'time', true);
 			xhttp.send();
 		}
+		*/
 		
 		function add() {
 			var songId = document.getElementById('tempsongid').value;
@@ -394,6 +423,17 @@
 			xhttp.open('GET', 'remove?name='+name+'&password='+password+'&idx='+i, true);
 			xhttp.send();
 		}
+		
+		document.addEventListener('click', function() {
+			muted = 0;
+			// I was hoping this would work on mobile, but it does not.
+			if (player != null && !unmuteApplied) {
+				//player.muted = false;
+				player.unMute();
+				console.log('unmuted');
+				unmuteApplied = true;
+			}
+		});
 		
 		setInterval(update, 1000);
 		
@@ -459,8 +499,7 @@
 			<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
 			<li>Can't swap videos around in playlist, or save/load playlist</li>
 			<li>Messages about adding songs do not disappear</li>
-			<li>On mobile, clicking on the (hidden) live button will set the video to a thumbnail but not play (maybe because autoplay is disabled on mobile by default)</li>
-			<li>On mobile, desktop version of site seems to work fine, though</li>
+			<li>Mobile version now seems to work, but requires clicking the video twice at the start.</li>
 			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins? Still not sure what happened with that bug, haven't been able to reproduce it.</li>
 		</ul>
 	</body>

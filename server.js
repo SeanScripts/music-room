@@ -211,48 +211,6 @@ function togglePlaylist(user, password) {
 	return message;
 }
 
-// Get the playlist for a user
-function getPlaylist(user, password) {
-	var valid = validateUser(user, password);
-	if (!valid) {
-		console.log('no auth');
-		return '';
-	}
-	var index = users.indexOf(user);
-	if (index != -1) {
-		var playlist = playlistsCommon[index];
-		//console.log(playlist);
-		var res = '';
-		for (var i = 0; i < playlist.length; i++) {
-			res += playlist[i];
-			if (i < playlist.length - 1) {
-				res += '\\';
-			}
-		}
-		console.log(res);
-		return res;
-	}
-	else {
-		console.log('no user');
-		return '';
-	}
-}
-
-// Get the current place in the user's playlist
-function getPlaylistIndex(user, password) {
-	var valid = validateUser(user, password);
-	if (!valid) {
-		return -1;
-	}
-	var index = users.indexOf(user);
-	if (index != -1) {
-		return playlistIndices[index];
-	}
-	else {
-		return -1;
-	}
-}
-
 // Start a song
 function startSong(user, songId) {
 	console.log('Start of start song');
@@ -328,6 +286,49 @@ function endSong() {
 		var nextUser = userQueue[0];
 		var nextSongId = songIdQueue[0];
 		startSong(nextUser, nextSongId);
+	}
+}
+
+
+// Get the playlist for a user
+function getPlaylist(user, password) {
+	var valid = validateUser(user, password);
+	if (!valid) {
+		console.log('no auth');
+		return '';
+	}
+	var index = users.indexOf(user);
+	if (index != -1) {
+		var playlist = playlistsCommon[index];
+		//console.log(playlist);
+		var res = '';
+		for (var i = 0; i < playlist.length; i++) {
+			res += playlist[i];
+			if (i < playlist.length - 1) {
+				res += '\\';
+			}
+		}
+		console.log(res);
+		return res;
+	}
+	else {
+		console.log('no user');
+		return '';
+	}
+}
+
+// Get the current place in the user's playlist
+function getPlaylistIndex(user, password) {
+	var valid = validateUser(user, password);
+	if (!valid) {
+		return -1;
+	}
+	var index = users.indexOf(user);
+	if (index != -1) {
+		return playlistIndices[index];
+	}
+	else {
+		return -1;
 	}
 }
 
@@ -753,6 +754,7 @@ http.createServer(function (request, response) {
 			}
 			
 			//Static requests
+			/*
 			if (pathname == '/time') {
 				//console.log('time');
 				// Get current time in song
@@ -783,16 +785,6 @@ http.createServer(function (request, response) {
 				response.writeHead(200);
 				response.end(''+getUserQueue());
 			}
-			else if (pathname == '/toggle') {
-				//console.log('toggle');
-				// Toggle playlist active
-				var params = url.parse(request.url, true).query;
-				reqUser = params['name'];
-				reqPassword = params['password'];
-				var valid = togglePlaylist(reqUser, reqPassword);
-				response.writeHead(200);
-				response.end(valid);
-			}
 			else if (pathname == '/index') {
 				//console.log('index');
 				// Get index in playlist for user
@@ -803,13 +795,23 @@ http.createServer(function (request, response) {
 				response.writeHead(200);
 				response.end(valid);
 			}
-			else if (pathname == '/playlist') {
+			else */ if (pathname == '/playlist') {
 				//console.log('playlist');
 				// Get playlist for user
 				var params = url.parse(request.url, true).query;
 				reqUser = params['name'];
 				reqPassword = params['password'];
 				var valid = getPlaylist(reqUser, reqPassword);
+				response.writeHead(200);
+				response.end(valid);
+			}
+			else if (pathname == '/toggle') {
+				//console.log('toggle');
+				// Toggle playlist active
+				var params = url.parse(request.url, true).query;
+				reqUser = params['name'];
+				reqPassword = params['password'];
+				var valid = togglePlaylist(reqUser, reqPassword);
 				response.writeHead(200);
 				response.end(valid);
 			}
