@@ -89,10 +89,35 @@
 			height: 400px;
 			overflow-y: scroll;
 		}
+		.responseOff {
+			font-size: 20px;
+			/* Fade out */
+			animation: fadeOut ease 2s;
+			opacity: 0;
+		}
+		.responseOn {
+			font-size: 20px;
+			/* Fade in */
+			animation: fadeIn ease 2s;
+			opacity: 1;
+		}
+		@keyframes fadeIn {
+			0% {opacity:0;}
+			100% {opacity:1;}
+		}
+		@keyframes fadeOut {
+			0% {opacity:1;}
+			100% {opacity:0;}
+		}
 		</style>
 	</head>
 	<body onload="init()">
 		<script>
+		var MESSAGE_DURATION = 5000;
+		var FADE_DURATION = 2000;
+		var fadeTimerA = null;
+		var fadeTimerB = null;
+		
 		var tag = document.createElement('script');
 		tag.src = "https://www.youtube.com/iframe_api";
 		var firstScriptTag = document.getElementsByTagName('script')[0];
@@ -105,7 +130,10 @@
 		function setWrapperSize(b) {
 			var ifw = document.getElementById('playerdiv');
 			ifw.className = (b) ? 'iframeWrapperBig' : 'iframeWrapperSmall';
-			
+		}
+		
+		function setResponseVisible(el, b) {
+			el.className = (b) ? 'responseOn' : 'responseOff';
 		}
 		
 		var player = null;
@@ -378,11 +406,21 @@
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
 				if (this.readyState == 4 && this.status == 200) {
-					document.getElementById('responsetemp').innerHTML = xhttp.responseText;
+					var el = document.getElementById('responsetemp');
+					el.innerHTML = xhttp.responseText;
+					//setResponseVisible(el, true);
+					//console.log('Visible');
+					if (fadeTimerA != null) {
+						clearTimeout(fadeTimerA);
+					}
+					fadeTimerA = setTimeout(function() { setResponseVisible(el, false); }, MESSAGE_DURATION);
 				}
 			};
 			xhttp.open('GET', 'add?name='+name+'&password='+password+'&songId='+songId, true);
 			xhttp.send();
+			var el = document.getElementById('responsetemp');
+			el.innerHTML = 'Loading...';
+			setResponseVisible(el, true);
 		}
 		
 		function listAdd() {
@@ -391,12 +429,22 @@
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
 				if (this.readyState == 4 && this.status == 200) {
-					document.getElementById('response').innerHTML = xhttp.responseText;
+					var el = document.getElementById('response');
+					el.innerHTML = xhttp.responseText;
+					//setResponseVisible(el, true);
+					//console.log('Visible');
+					if (fadeTimerB != null) {
+						clearTimeout(fadeTimerB);
+					}
+					fadeTimerB = setTimeout(function() { setResponseVisible(el, false); }, MESSAGE_DURATION);
 					getPlaylist();
 				}
 			};
 			xhttp.open('GET', 'listadd?name='+name+'&password='+password+'&songId='+songId, true);
 			xhttp.send();
+			var el = document.getElementById('response');
+			el.innerHTML = 'Loading...';
+			setResponseVisible(el, true);
 		}
 		
 		function togglePlaylist() {
@@ -548,7 +596,7 @@
 					<p>Enter an ID to add a temporary song:</p>
 					<input id="tempsongid" type="text" name="tempsongid"></input>
 					<button onclick="add()">Submit</button>
-					<p id="responsetemp"></p>
+					<p class="responseOff" id="responsetemp">&nbsp;</p>
 					<button onclick="voteSkip()">Vote to Skip</button>
 				</td>
 				<td id="videobox" width="50%">
@@ -568,7 +616,7 @@
 					<!--<p>Enter an ID to add to your list:</p>-->
 					<input id="songid" type="text" name="songid"></input>
 					<button onclick="listAdd()">Submit</button>
-					<p id="response"></p>
+					<p class="responseOff" id="response">&nbsp;</p>
 				</td>
 			</tr>
 			<tr>
@@ -582,7 +630,6 @@
 			<li>Subtitles/annotations/quality/more videos can only be accessed in fullscreen mode</li>
 			<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
 			<li>Can't save/load playlist</li>
-			<li>Messages about adding songs do not disappear</li>
 			<li>Mobile version now seems to work, but requires clicking the video twice at the start.</li>
 			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins? Still not sure what happened with that bug, haven't been able to reproduce it.</li>
 		</ul>

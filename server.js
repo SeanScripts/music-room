@@ -546,24 +546,22 @@ function addSong(user, password, songId, response) {
 						let re = /approxDurationMs\\\":\\\"([0-9]+)\\\"/;
 						var arr = resstr.match(re);
 						if (arr != null && arr.length > 1) {
-							//TODO: Don't add directly?
-							var index = users.indexOf(user);
-							tempSongs[index] = songId;
-							if (userQueueOrder.indexOf(user) == -1) {
-								userQueueOrder.push(user);
+							// Verify that video is embeddable
+							let re_emb = /playableInEmbed\\\":([a-z]+),/;
+							var arr_emb = resstr.match(re_emb);
+							if (arr_emb != null && arr_emb.length > 1 && arr_emb[1] == 'true') {
+								var index = users.indexOf(user);
+								tempSongs[index] = songId;
+								if (userQueueOrder.indexOf(user) == -1) {
+									userQueueOrder.push(user);
+								}
+								console.log('Temp song added to queue');
+								updateQueue();
+								feedback += 'You are in position '+userQueueOrder.length+'.'
 							}
-							console.log('Temp song added to queue');
-							updateQueue();
-							/*
-							userQueue.push(reqUser);
-							songIdQueue.push(reqSongId);
-							if (userQueue.length == 1 && ended) {
-								var user = userQueue.shift();
-								var songId = songIdQueue.shift();
-								startSong(user, songId);
+							else {
+								feedback = 'Video is not embeddable.';
 							}
-							*/
-							feedback += 'You are in position '+userQueueOrder.length+'.'
 						}
 						else {
 							valid = false;
@@ -616,42 +614,40 @@ function addSongToPlaylist(user, password, songId, response) {
 					let re = /approxDurationMs\\\":\\\"([0-9]+)\\\"/;
 					var arr = resstr.match(re);
 					if (arr != null && arr.length > 1) {
-						playlists[index].push(songId);
-						let re2 = /title\\\":\\\"(.*?)\\\",\\\"l/; // Lazy quantifier really helps here.
-						var arr2 = resstr.match(re2);
-						if (arr2 != null && arr2.length > 1) {
-							var songTitle = arr2[1];
-							// Remove backslashes to not mess up the list
-							songTitle = songTitle.replace(/\\u0026/g, '&'); //There may be others like this...
-							songTitle = songTitle.replace(/\\/g, '');
-							console.log(songTitle);
-							//console.log(songTitle.length);
-							playlistsCommon[index].push(songTitle);
-							//console.log(playlistsCommon);
+						// Verify that video is embeddable
+						let re_emb = /playableInEmbed\\\":([a-z]+),/;
+						var arr_emb = resstr.match(re_emb);
+						if (arr_emb != null && arr_emb.length > 1 && arr_emb[1] == 'true') {
+							playlists[index].push(songId);
+							let re2 = /title\\\":\\\"(.*?)\\\",\\\"l/; // Lazy quantifier really helps here.
+							var arr2 = resstr.match(re2);
+							if (arr2 != null && arr2.length > 1) {
+								var songTitle = arr2[1];
+								// Remove backslashes to not mess up the list
+								songTitle = songTitle.replace(/\\u0026/g, '&'); //There may be others like this...
+								songTitle = songTitle.replace(/\\/g, '');
+								console.log(songTitle);
+								//console.log(songTitle.length);
+								playlistsCommon[index].push(songTitle);
+								//console.log(playlistsCommon);
+							}
+							else {
+								playlistsCommon[index].push(songId);
+								feedback += 'Could not find title.';
+							}
+							console.log('Added song: '+songId);
+							console.log('Song added to playlist');
+							if (usingPlaylist[index] && playlists[index].length == 1) {
+								// This song was just added to an empty, active playlist
+								// So add this user to the queue
+								console.log('Adding to user queue order because this is the first song added to an active playlist');
+								userQueueOrder.push(user);
+							}
+							updateQueue();
 						}
 						else {
-							playlistsCommon[index].push(songId);
-							feedback += 'Could not find title.';
+							feedback = 'Video is not embeddable.';
 						}
-						console.log('Added song: '+songId);
-						console.log('Song added to playlist');
-						if (usingPlaylist[index] && playlists[index].length == 1) {
-							// This song was just added to an empty, active playlist
-							// So add this user to the queue
-							console.log('Adding to user queue order because this is the first song added to an active playlist');
-							userQueueOrder.push(user);
-						}
-						updateQueue();
-						/*
-						userQueue.push(reqUser);
-						songIdQueue.push(reqSongId);
-						if (userQueue.length == 1 && ended) {
-							var user = userQueue.shift();
-							var songId = songIdQueue.shift();
-							startSong(user, songId);
-						}
-						*/
-						//feedback += 'Song added at position '+(playlists[index].length-1)+'.'
 					}
 					else {
 						valid = false;
