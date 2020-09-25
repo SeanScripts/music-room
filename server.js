@@ -106,6 +106,8 @@ function query_callback(sql, callback) {
 
 var QUEUE_LENGTH = 10;
 var SONG_END_DELAY = 2000; //ms
+var INACTIVE_TIME = 5000; //ms
+var SKIP_VOTE_RATIO = 0.5; //Or maybe more
 
 // Matched per user
 var users = [];
@@ -116,6 +118,7 @@ var playlists = []; // Youtube IDs
 var playlistsCommon = []; // More descriptive titles
 var playlistIndices = [];
 var tempSongs = [];
+var skipVotes = [];
 
 // Order of the users to cycle through
 var currQueueIndex = 0;
@@ -130,6 +133,9 @@ var currentSongUrl = '';
 var currentSongId = '';
 var timeStarted = '';
 var ended = true;
+var skipping = false;
+
+var timer = null;
 
 // Add a user to the list when they arrive, or login otherwise
 function login(user, password) {
@@ -146,6 +152,7 @@ function login(user, password) {
 		playlists.push([]);
 		playlistsCommon.push([]);
 		tempSongs.push('');
+		skipVotes.push(false);
 		return true;
 	}
 	// User is already in system
@@ -262,8 +269,12 @@ function startSong(user, songId) {
 					let diff = currTime - timeStarted;
 					let remaining = duration - diff;
 					// Start the next song at the end of this one
+					// Need to not wait the whole time at once because of the option to skip
+					if (!skipping) {
+						//TODO
+					}
 					console.log('Waiting for end of song...');
-					setTimeout(endSong, remaining + SONG_END_DELAY);
+					timer = setTimeout(endSong, remaining + SONG_END_DELAY);
 				}
 				else {
 					console.log('Failed to find song duration for url: '+currentSongUrl);
@@ -279,7 +290,10 @@ function startSong(user, songId) {
 
 // End song and go to the next one if available
 function endSong() {
+	timer = null;
 	ended = true;
+	skipping = false;
+	resetVotes();
 	console.log('Song ended');
 	if (userQueue.length > 0) {
 		console.log('Starting next song');
@@ -337,7 +351,7 @@ function getUserList() {
 	var res = '';
 	for (var i = 0; i < users.length; i++) {
 		var time = Date.now();
-		if (time - lastActive[i] < 5000) {
+		if (time - lastActive[i] < INACTIVE_TIME) {
 			res += users[i];
 			if (i < users.length - 1) {
 				res += '\\';
@@ -608,6 +622,7 @@ function addSongToPlaylist(user, password, songId, response) {
 						if (arr2 != null && arr2.length > 1) {
 							var songTitle = arr2[1];
 							// Remove backslashes to not mess up the list
+							songTitle = songTitle.replace(/\\u0026/g, '&'); //There may be others like this...
 							songTitle = songTitle.replace(/\\/g, '');
 							console.log(songTitle);
 							//console.log(songTitle.length);
@@ -623,6 +638,7 @@ function addSongToPlaylist(user, password, songId, response) {
 						if (usingPlaylist[index] && playlists[index].length == 1) {
 							// This song was just added to an empty, active playlist
 							// So add this user to the queue
+							console.log('Adding to user queue order because this is the first song added to an active playlist');
 							userQueueOrder.push(user);
 						}
 						updateQueue();
@@ -687,6 +703,103 @@ function deleteFromPlaylist(user, password, idx) {
 	}
 	console.log('End delete song from playlist');
 	return true;
+}
+
+function arrayMove(arr, fromIndex, toIndex) {
+    var element = arr[fromIndex];
+    arr.splice(fromIndex, 1);
+    arr.splice(toIndex, 0, element);
+}
+
+function moveSong(user, password, i, j) {
+	console.log('Start delete song from playlist');
+	var valid = validateUser(user, password);
+	if (!valid) {
+		return false;
+	}
+	else {
+		var index = users.indexOf(user);
+		if (index != -1) {
+			if (i >= 0 && i < playlists[index].length && j >= 0 && j < playlists[index].length) {
+				// Move the songs
+				arrayMove(playlists[index], i, j);
+				arrayMove(playlistsCommon[index], i, j);
+				// Swap the songs
+				/*
+				var temp = playlists[index][i];
+				playlists[index][i] = playlists[index][j];
+				playlists[index][j] = temp;
+				temp = playlistsCommon[index][i];
+				playlistsCommon[index][i] = playlistsCommon[index][j];
+				playlistsCommon[index][j] = temp;
+				*/
+				//TODO: If length is kept track of here, swap it as well
+				// Is anything else swapped?
+				// Update the queue now
+				updateQueue();
+			}
+			else {
+				return false;
+			}
+		}
+		else {
+			return false;
+		}
+	}
+}
+
+function voteSkip(user, password, reason) {
+	console.log('Vote to skip');
+	var valid = validateUser(user, password);
+	if (!valid) {
+		return false;
+	}
+	else {
+		var index = users.indexOf(user);
+		if (index != -1) {
+			if (reason != 'null') {
+				console.log('Reason for skipping: '+reason);
+			}
+			if (!skipping) {
+				skipVotes[index] = true;
+				for (var i = 0; i < users.length; i++) {
+					// Check that the user is active and voted to skip
+					var total = 0;
+					var votes = 0;
+					var time = Date.now();
+					if (time - lastActive[i] < INACTIVE_TIME) {
+						total++;
+						if (skipVotes[i]) {
+							votes++;
+						}
+					}
+					console.log('Skip ratio: '+(votes/total));
+					if ((votes/total) > SKIP_VOTE_RATIO) {
+						console.log('Skipping song');
+						skipping = true;
+						clearTimeout(timer);
+						timer = setTimeout(endSong, 5);
+						//skipping = false;
+						//resetVotes();
+						return true;
+					}
+				}
+			}
+			else {
+				// Don't let them try to skip if it's already currently skipping
+				return false;
+			}
+		}
+		else {
+			return false;
+		}
+	}
+}
+
+function resetVotes() {
+	for (var i = 0; i < users.length; i++) {
+		skipVotes[i] = false;
+	}
 }
 
 // Test
@@ -821,8 +934,30 @@ http.createServer(function (request, response) {
 				var params = url.parse(request.url, true).query;
 				reqUser = params['name'];
 				reqPassword = params['password'];
-				reqIdx = params['idx'];
+				var reqIdx = params['idx'];
 				var valid = deleteFromPlaylist(reqUser, reqPassword, reqIdx);
+				response.writeHead(200);
+				response.end(''+valid);
+			}
+			else if (pathname == '/move') {
+				//console.log('remove');
+				// Remove from playlist
+				var params = url.parse(request.url, true).query;
+				reqUser = params['name'];
+				reqPassword = params['password'];
+				var reqI = params['i'];
+				var reqJ = params['j'];
+				var valid = moveSong(reqUser, reqPassword, reqI, reqJ);
+				response.writeHead(200);
+				response.end(''+valid);
+			}
+			else if (pathname == '/skip') {
+				// Periodic update
+				var params = url.parse(request.url, true).query;
+				reqUser = params['name'];
+				reqPassword = params['password'];
+				var reqReason = params['reason'];
+				var valid = voteSkip(reqUser, reqPassword, reqReason);
 				response.writeHead(200);
 				response.end(''+valid);
 			}
@@ -839,10 +974,10 @@ http.createServer(function (request, response) {
 				var params = url.parse(request.url, true).query;
 				reqUser = params['name'];
 				reqPassword = params['password'];
-				reqSongId = params['songId'];
+				var reqSongId = params['songId'];
 				// Correct to the ID
 				if (reqSongId.startsWith('http')) {
-					var re = /v=(.*)/;
+					var re = /(?:com|be)\/(?:watch\?v=)?(.+)/; // Accounts for youtu.be short form
 					var arr = reqSongId.match(re);
 					if (arr != null && arr.length > 1) {
 						reqSongId = arr[1];
@@ -856,7 +991,7 @@ http.createServer(function (request, response) {
 				var params = url.parse(request.url, true).query;
 				reqUser = params['name'];
 				reqPassword = params['password'];
-				reqSongId = params['songId'];
+				var reqSongId = params['songId'];
 				// Correct to the ID
 				if (reqSongId.startsWith('http')) {
 					var re = /v=(.*)/;

@@ -46,8 +46,11 @@
 			color: #FFFFFF;
 			font-size: 20px;
 		}
-		.del {
-			font-size: 16px;
+		.del, .toTop, .toBottom {
+			font-size: 18px;
+		}
+		.up, .down {
+			font-size: 21px;
 		}
 		.iframeWrapperSmall {
 			display: inline-block;
@@ -117,6 +120,7 @@
 		var unmuteApplied = false; // Only unmute at the beginning. Don't unmute every click
 		var currentSong = 'https://www.youtube.com/embed/';
 		var lastTime = 0;
+		var playlistSize = 0;
 		
 		function init() {
 			getPlaylist();
@@ -204,11 +208,12 @@
 			xhttp.onreadystatechange = function() {
 				if (this.readyState == 4 && this.status == 200) {
 					var playlist = xhttp.responseText.split('\\');
+					playlistSize = playlist.length;
 					if (playlist.length > 0 && playlist[0] != '') {
 						console.log(playlist);
 						var playlisttext = '';
-						for (var i = 0; i < playlist.length; i++) {
-							playlisttext += "<li><button class=\"del\" id=\"del"+i+"\" onclick=\"remove("+i+")\">❌</button>&nbsp;<span id=\"list"+i+"\">"+playlist[i]+"</span></li>"
+						for (var i = 0; i < playlistSize; i++) {
+							playlisttext += "<li><button class=\"del\" id=\"del"+i+"\" onclick=\"remove("+i+")\">❌</button><button class=\"toTop\" id=\"toTop"+i+"\" onclick=\"moveToTop("+i+")\">⏫</button><button class=\"up\" id=\"up"+i+"\" onclick=\"moveUp("+i+")\">▲</button><button class=\"down\" id=\"down"+i+"\" onclick=\"moveDown("+i+")\">▼</button><button class=\"toBottom\" id=\"toBottom"+i+"\" onclick=\"moveToBottom("+i+")\">⏬</button>&nbsp;<span id=\"list"+i+"\">"+playlist[i]+"</span></li>"
 						}
 						document.getElementById('playlist').innerHTML = playlisttext;
 					}
@@ -424,11 +429,89 @@
 			xhttp.send();
 		}
 		
+		function moveUp(i) {
+			if (i != 0) {
+				var xhttp = new XMLHttpRequest();
+				xhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						// Get updated playlist (don't deal with trying to rearrange the indices yourself.)
+						getPlaylist();
+					}
+				};
+				xhttp.open('GET', 'move?name='+name+'&password='+password+'&i='+i+'&j='+(i-1), true);
+				xhttp.send();
+			}
+		}
+		
+		function moveDown(i) {
+			if (i != playlistSize-1) {
+				var xhttp = new XMLHttpRequest();
+				xhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						// Get updated playlist (don't deal with trying to rearrange the indices yourself.)
+						getPlaylist();
+					}
+				};
+				xhttp.open('GET', 'move?name='+name+'&password='+password+'&i='+i+'&j='+(i+1), true);
+				xhttp.send();
+			}
+		}
+		
+		function moveToTop(i) {
+			if (i != 0) {
+				var xhttp = new XMLHttpRequest();
+				xhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						// Get updated playlist (don't deal with trying to rearrange the indices yourself.)
+						getPlaylist();
+					}
+				};
+				xhttp.open('GET', 'move?name='+name+'&password='+password+'&i='+i+'&j=0', true);
+				xhttp.send();
+			}
+		}
+		
+		function moveToBottom(i) {
+			if (i != playlistSize-1) {
+				var xhttp = new XMLHttpRequest();
+				xhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						// Get updated playlist (don't deal with trying to rearrange the indices yourself.)
+						getPlaylist();
+					}
+				};
+				xhttp.open('GET', 'move?name='+name+'&password='+password+'&i='+i+'&j='+(playlistSize-1), true);
+				xhttp.send();
+			}
+		}
+		
+		function voteSkip() {
+			var reason = prompt("Are you sure you want to skip?", "Reason for skipping (optional, for debug)");
+			if (reason != null) {
+				console.log('Voting to skip');
+				var xhttp = new XMLHttpRequest();
+				xhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						// Nothing to do I guess
+					}
+				};
+				if (reason != '') {
+					xhttp.open('GET', 'skip?name='+name+'&password='+password+'&reason='+reason, true);
+				}
+				else {
+					xhttp.open('GET', 'skip?name='+name+'&password='+password+'&reason=null', true);
+				}
+				xhttp.send();
+			}
+			else {
+				console.log('Cancelled skip');
+			}
+		}
+		
 		document.addEventListener('click', function() {
 			muted = 0;
 			// I was hoping this would work on mobile, but it does not.
-			if (player != null && !unmuteApplied) {
-				//player.muted = false;
+			if (player != null && !unmuteApplied && currentSong != 'https://www.youtube.com/embed/') {
 				player.unMute();
 				console.log('unmuted');
 				unmuteApplied = true;
@@ -466,6 +549,7 @@
 					<input id="tempsongid" type="text" name="tempsongid"></input>
 					<button onclick="add()">Submit</button>
 					<p id="responsetemp"></p>
+					<button onclick="voteSkip()">Vote to Skip</button>
 				</td>
 				<td id="videobox" width="50%">
 					<div id="playerdiv" class="iframeWrapperBig" onclick="togglePause()">
@@ -497,7 +581,7 @@
 		<ul>
 			<li>Subtitles/annotations/quality/more videos can only be accessed in fullscreen mode</li>
 			<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
-			<li>Can't swap videos around in playlist, or save/load playlist</li>
+			<li>Can't save/load playlist</li>
 			<li>Messages about adding songs do not disappear</li>
 			<li>Mobile version now seems to work, but requires clicking the video twice at the start.</li>
 			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins? Still not sure what happened with that bug, haven't been able to reproduce it.</li>
