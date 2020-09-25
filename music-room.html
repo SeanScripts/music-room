@@ -113,12 +113,38 @@
 			setWrapperSize(true);
 		}
 		
-		var paused = true;
+		var paused = false;
+		var unpausing = false;
 		var currentSong = 'https://www.youtube.com/embed/';
-		var lastTime = null;
+		var lastTime = 0;
 		
 		function init() {
 			getPlaylist();
+		}
+		
+		function update() {
+			// Replaces upkeep, and also gets extra functionality, without having to make multiple server reqeusts
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					// Parse the JSON reponse
+					//console.log(xhttp.responseText);
+					var res = JSON.parse(xhttp.responseText);
+					// Update current DJ, DJ list, user list, and playlist index
+					document.getElementById('djcurr').innerHTML = res['currentUser'];
+					updateDJList(res['queue']);
+					updateUserList(res['userList']);
+					updatePlaylistActiveSong(parseInt(res['playlistIndex']));
+					// Update the current song, but only if not paused
+					if (!paused) {
+						updateSong(res['currentSong'], parseInt(res['time']))
+					}
+					// Update the time on the song, regardless of whether it is paused
+					lastTime = parseInt(res['time']);
+				}
+			};
+			xhttp.open('GET', 'update?name='+name+'&password='+password, true);
+			xhttp.send();
 		}
 		
 		function upkeep() {
@@ -131,16 +157,26 @@
 			}
 		}
 		
+		function updatePlaylistActiveSong(index) {
+			// TODO: Simple class toggle for a class that I haven't made yet
+		}
+		
 		function togglePause() {
-			console.log('Toggle pause');
-			paused = !paused;
-			if (!paused) {
-				getSong();
-				getTime();
-			}
-			else {
-				if (player != null) {
-					player.pauseVideo();
+			// Only allow pause toggle when a video is actually active, otherwise the behavior will be weird.
+			if (currentSong != 'https://www.youtube.com/embed/') {
+				console.log('Toggle pause');
+				paused = !paused;
+				if (!paused) {
+					//getSong();
+					//getTime();
+					unpausing = true;
+					update();
+					//unpausing = false; //This is bad, it asynchronously sets it back immediately...
+				}
+				else {
+					if (player != null) {
+						player.pauseVideo();
+					}
 				}
 			}
 		}
@@ -182,40 +218,49 @@
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
 				if (this.readyState == 4 && this.status == 200) {
-					var userlist = xhttp.responseText.split('\\');
-					//console.log(userlist);
-					var userstext = '';
-					for (var i = 0; i < userlist.length; i++) {
-						userstext += userlist[i];
-						if (i < userlist.length-1) {
-							userstext += ', ';
-						}
-					}
-					document.getElementById('users').innerHTML = userstext;
+					updateUserList(xhttp.responseText);
 				}
 			};
 			xhttp.open('GET', 'list', true);
 			xhttp.send();
 		}
 		
+		function updateUserList(listText) {
+			var userlist = listText.split('\\');
+			//console.log(userlist);
+			var userstext = '';
+			for (var i = 0; i < userlist.length; i++) {
+				userstext += userlist[i];
+				if (i != userlist.length-1) {
+					userstext += ', ';
+				}
+			}
+			document.getElementById('users').innerHTML = userstext;
+		}
+		
 		function getDJList() {
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
 				if (this.readyState == 4 && this.status == 200) {
-					var djlist = xhttp.responseText.split('\\');
-					for (var i = 0; i < 10; i++) {
-						let v = ''
-						if (i < djlist.length) {
-							v = djlist[i]
-						}
-						document.getElementById('dj'+i).innerHTML = v
-					}
+					updateDJList(xhttp.responseText);
 				}
 			};
 			xhttp.open('GET', 'queue', true);
 			xhttp.send();
 		}
 		
+		function updateDJList(listText) {
+			var djlist = listText.split('\\');
+			for (var i = 0; i < 10; i++) {
+				let v = ''
+				if (i < djlist.length) {
+					v = djlist[i]
+				}
+				document.getElementById('dj'+i).innerHTML = v
+			}
+		}
+		
+		// This is obsolete now, as are many of these functions
 		function getSong() {
 			var responded = false;
 			var xhttp = new XMLHttpRequest();
@@ -236,6 +281,7 @@
 								else {
 									lastTime = 0;
 									currentSong = xhttp2.responseText;
+									document.getElementById('player').src = currentSong;
 									setWrapperSize(true);
 								}
 							}
@@ -249,6 +295,28 @@
 			xhttp.open('GET', 'time', true);
 			xhttp.send();
 			
+		}
+		
+		function updateSong(newSong, newTime) {
+			//console.log('Updating song');
+			// LastTime thing is for auto-synchronizing, but it may only really be necessary when unpausing.
+			// However, it becomes necessary because the same song can play twice in a row, and the time index is the only thing that helps you.
+			if (currentSong == 'https://www.youtube.com/embed/' || unpausing || newTime < lastTime) {
+				if (newSong != 'https://www.youtube.com/embed/') {
+					console.log('Changing song');
+					currentSong = newSong;
+					document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=1&autoplay=1&start=' + newTime;
+					setWrapperSize(false);
+					unpausing = false; // Has to be set here or it will be asynchronously reset too early!
+				}
+				else if (currentSong != 'https://www.youtube.com/embed/') {
+					lastTime = 0;
+					currentSong = newSong;
+					document.getElementById('player').src = currentSong;
+					setWrapperSize(true);
+				}
+			}
+			//lastTime = newTime;
 		}
 		
 		function getTime() {
@@ -327,9 +395,7 @@
 			xhttp.send();
 		}
 		
-		//TODO: Add control for mute/volume?
-		
-		setInterval(upkeep, 1000);
+		setInterval(update, 1000);
 		
 		</script>
 		<table class="maintable">
@@ -392,13 +458,10 @@
 			<li>Subtitles/annotations/quality/more videos can only be accessed in fullscreen mode</li>
 			<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
 			<li>Can't swap videos around in playlist, or save/load playlist</li>
-			<li>Clicking play at the end of the last video while nothing is playing might break the player, requiring a page refresh</li>
-			<li>Users will not disappear from the user list until the next session of the server</li>
 			<li>Messages about adding songs do not disappear</li>
 			<li>On mobile, clicking on the (hidden) live button will set the video to a thumbnail but not play (maybe because autoplay is disabled on mobile by default)</li>
 			<li>On mobile, desktop version of site seems to work fine, though</li>
-			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins?</li>
-			<li>Should add some small delay between videos</li>
+			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins? Still not sure what happened with that bug, haven't been able to reproduce it.</li>
 		</ul>
 	</body>
 </html>

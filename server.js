@@ -105,10 +105,12 @@ function query_callback(sql, callback) {
 // Actual code
 
 var QUEUE_LENGTH = 10;
+var SONG_END_DELAY = 2000; //ms
 
 // Matched per user
 var users = [];
 var passwords = []; // plaintext
+var lastActive = [];
 var usingPlaylist = [];
 var playlists = []; // Youtube IDs
 var playlistsCommon = []; // More descriptive titles
@@ -138,6 +140,7 @@ function login(user, password) {
 	if (index == -1) {
 		users.push(user);
 		passwords.push(password);
+		lastActive.push(Date.now());
 		usingPlaylist.push(false);
 		playlistIndices.push(0);
 		playlists.push([]);
@@ -300,9 +303,9 @@ function startSong(user, songId) {
 					let currTime = Date.now();
 					let diff = currTime - timeStarted;
 					let remaining = duration - diff;
-					// Start the next song at the end of this one (TODO: Plus some wait for loading?)
+					// Start the next song at the end of this one
 					console.log('Waiting for end of song...');
-					setTimeout(endSong, remaining);
+					setTimeout(endSong, remaining + SONG_END_DELAY);
 				}
 				else {
 					console.log('Failed to find song duration for url: '+currentSongUrl);
@@ -332,9 +335,12 @@ function endSong() {
 function getUserList() {
 	var res = '';
 	for (var i = 0; i < users.length; i++) {
-		res += users[i];
-		if (i < users.length - 1) {
-			res += '\\';
+		var time = Date.now();
+		if (time - lastActive[i] < 5000) {
+			res += users[i];
+			if (i < users.length - 1) {
+				res += '\\';
+			}
 		}
 	}
 	return res;
@@ -454,6 +460,40 @@ function updateQueue() {
 		songIdQueue = [];
 	}
 	console.log('End update queue');
+}
+
+// Called each second, combines some of the info in the response
+function update(user, password, response) {
+	//console.log('Update '+user);
+	var valid = validateUser(user, password);
+	if (!valid) {
+		response.writeHead(403);
+		response.end();
+	}
+	else {
+		var index = users.indexOf(user);
+		if (index != -1) {
+			// Update activity timestamp
+			lastActive[index] = Date.now();
+			
+			// Find info for now
+			var res = {};
+			res['userList'] = getUserList();
+			res['queue'] = getUserQueue();
+			res['currentUser'] = getCurrentUser();
+			res['currentSong'] = getCurrentSong();
+			res['time'] = getCurrentTimeInVideo();
+			//res['playlist'] = getPlaylist(user, password); //This one could be considerably longer
+			res['playlistIndex'] = getPlaylistIndex(user, password);
+			response.writeHead(200);
+			var resText = JSON.stringify(res);
+			response.end(resText);
+		}
+		else {
+			response.writeHead(500);
+			reponse.end('No user found! Try logging in again.');
+		}
+	}
 }
 
 // Add song for one-time playing
@@ -783,6 +823,13 @@ http.createServer(function (request, response) {
 				var valid = deleteFromPlaylist(reqUser, reqPassword, reqIdx);
 				response.writeHead(200);
 				response.end(''+valid);
+			}
+			else if (pathname == '/update') {
+				// Periodic update
+				var params = url.parse(request.url, true).query;
+				reqUser = params['name'];
+				reqPassword = params['password'];
+				update(reqUser, reqPassword, response);
 			}
 			else if (pathname == '/add') {
 				//console.log('add temp');
