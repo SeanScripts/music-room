@@ -691,6 +691,21 @@ function deleteFromPlaylist(user, password, idx) {
 			}
 			if (playlists[index].length == 0) {
 				playlistIndices[index] = 0;
+				// Remove from the user queue order
+				var tidx = userQueueOrder.indexOf(user);
+				if (tidx != -1) {
+					userQueueOrder.splice(tidx, 1);
+					if (currQueueIndex >= tidx) {
+						currQueueIndex--;
+					}
+					if (userQueueOrder.length == 0) {
+						currQueueIndex = 0;
+					}
+				}
+				else {
+					console.log('User not in queue somehow');
+					return false;
+				}
 			}
 			console.log('Song deleted from playlist');
 			// Refresh

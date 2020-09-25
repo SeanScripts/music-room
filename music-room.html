@@ -556,6 +556,22 @@
 			}
 		}
 		
+		function savePlaylist() {
+			/*
+			//Make list as plain text
+			//TODO
+			//Download a txt file
+			var data = new Blob([text], {type: 'text/plain'});
+			var url = window.URL.createObjectURL(data);
+			document.getElementById('download_link').href = url;
+			*/
+		}
+		
+		function loadPlaylist() {
+			//Upload a txt file, send it to the server
+			
+		}
+		
 		document.addEventListener('click', function() {
 			muted = 0;
 			// I was hoping this would work on mobile, but it does not.
@@ -617,6 +633,7 @@
 					<input id="songid" type="text" name="songid"></input>
 					<button onclick="listAdd()">Submit</button>
 					<p class="responseOff" id="response">&nbsp;</p>
+					<button onclick="savePlaylist()">Save Playlist</button><button onclick="loadPlaylist()">Load Playlist</button>
 				</td>
 			</tr>
 			<tr>
@@ -627,11 +644,15 @@
 		</table>
 		<h5>Bugs</h5>
 		<ul>
+			<li>A second user will have to wait an extra song to get into the queue</li>
+			<li>Can't save/load playlist</li>
 			<li>Subtitles/annotations/quality/more videos can only be accessed in fullscreen mode</li>
 			<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
-			<li>Can't save/load playlist</li>
 			<li>Mobile version now seems to work, but requires clicking the video twice at the start.</li>
-			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins? Still not sure what happened with that bug, haven't been able to reproduce it.</li>
+			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins? Still not sure what happened with that bug, haven't been able to reproduce it</li>
+			<li>Tabbing away while no music is playing, then coming back, the music will start at the beginning of the loaded song rather than synchronized</li>
+			<li>Same song repeating over and over maybe can cause problems</li>
+			<li>Next up undefined can happen, at which point everything is broken I guess</li>
 		</ul>
 	</body>
 </html>
