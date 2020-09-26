@@ -139,7 +139,7 @@ var timer = null;
 
 // Add a user to the list when they arrive, or login otherwise
 function login(user, password) {
-	if (user == '') {
+	if (user == '' || password == '') {
 		return false;
 	}
 	var index = users.indexOf(user);
@@ -414,7 +414,8 @@ function updateQueue() {
 		// Use userQueueOrder along with usingPlaylist
 		var uq = [];
 		var sq = [];
-		var i = currQueueIndex;
+		// Start at the next queue index so that it doesn't play the current person twice when new people join in
+		var i = (currQueueIndex+1)%userQueueOrder.length;
 		var tempSongUsers = [];
 		var cycle = 0;
 		while (uq.length < QUEUE_LENGTH && cycle < QUEUE_LENGTH) {
@@ -768,32 +769,32 @@ function voteSkip(user, password, reason) {
 	else {
 		var index = users.indexOf(user);
 		if (index != -1) {
-			if (reason != 'null') {
+			if (reason != 'null' && reason != 'Reason for skipping (optional, for debug)') {
 				console.log('Reason for skipping: '+reason);
 			}
 			if (!skipping) {
 				skipVotes[index] = true;
+				var total = 0;
+				var votes = 0;
+				var time = Date.now();
 				for (var i = 0; i < users.length; i++) {
 					// Check that the user is active and voted to skip
-					var total = 0;
-					var votes = 0;
-					var time = Date.now();
 					if (time - lastActive[i] < INACTIVE_TIME) {
 						total++;
 						if (skipVotes[i]) {
 							votes++;
 						}
 					}
-					console.log('Skip ratio: '+(votes/total));
-					if ((votes/total) > SKIP_VOTE_RATIO) {
-						console.log('Skipping song');
-						skipping = true;
-						clearTimeout(timer);
-						timer = setTimeout(endSong, 5);
-						//skipping = false;
-						//resetVotes();
-						return true;
-					}
+				}
+				console.log('Skip ratio: '+(votes/total));
+				if ((votes/total) > SKIP_VOTE_RATIO) {
+					console.log('Skipping song');
+					skipping = true;
+					clearTimeout(timer);
+					timer = setTimeout(endSong, 5);
+					//skipping = false;
+					//resetVotes();
+					return true;
 				}
 			}
 			else {
@@ -1005,7 +1006,7 @@ http.createServer(function (request, response) {
 				var reqSongId = params['songId'];
 				// Correct to the ID
 				if (reqSongId.startsWith('http')) {
-					var re = /v=(.*)/;
+					var re = /(?:com|be)\/(?:watch\?v=)?(.+)/; // Accounts for youtu.be short form
 					var arr = reqSongId.match(re);
 					if (arr != null && arr.length > 1) {
 						reqSongId = arr[1];

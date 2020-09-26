@@ -136,10 +136,23 @@
 			el.className = (b) ? 'responseOn' : 'responseOff';
 		}
 		
+		//var lastPlayerState = null;
 		var player = null;
 		function onYouTubeIframeAPIReady() {
 			player = new YT.Player('player', {});
 			setWrapperSize(true);
+			//player.seekTo(lastTime, true);
+			/*
+			player.addEventListener('onStateChange', function(state) {
+				console.log(state['data'] + ' ... ' + lastPlayerState);
+				// This on its own could handle the unpause synchronization, I think, but doesn't quite work yet
+				if (state['data'] == 1 && (lastPlayerState == -1 || lastPlayerState == 2)) {
+					console.log('Seeking');
+					player.seekTo(lastTime, true);
+				}
+				lastPlayerState = state['data'];
+			});
+			*/
 		}
 		
 		var paused = false;
@@ -173,6 +186,7 @@
 					}
 					// Update the time on the song, regardless of whether it is paused
 					lastTime = parseInt(res['time']);
+					console.log(lastTime);
 				}
 			};
 			xhttp.open('GET', 'update?name='+name+'&password='+password, true);
@@ -582,6 +596,49 @@
 			}
 		});
 		
+		(function() {
+			var hidden = "hidden";
+			
+			// Standards:
+			if (hidden in document)
+				document.addEventListener("visibilitychange", onchange);
+			else if ((hidden = "mozHidden") in document)
+				document.addEventListener("mozvisibilitychange", onchange);
+			else if ((hidden = "webkitHidden") in document)
+				document.addEventListener("webkitvisibilitychange", onchange);
+			else if ((hidden = "msHidden") in document)
+				document.addEventListener("msvisibilitychange", onchange);
+			// IE 9 and lower:
+			else if ("onfocusin" in document)
+				document.onfocusin = document.onfocusout = onchange;
+			// All others:
+			else
+				window.onpageshow = window.onpagehide = window.onfocus = window.onblur = onchange;
+			
+			function onchange (evt) {
+				var v = "visible", h = "hidden",
+				evtMap = {
+				  focus:v, focusin:v, pageshow:v, blur:h, focusout:h, pagehide:h
+				};
+				evt = evt || window.event;
+				if (evt.type in evtMap) {
+					document.body.className = evtMap[evt.type];
+				}
+				else {
+					document.body.className = this[hidden] ? "hidden" : "visible";
+				}
+				if (document.body.className != "hidden") {
+					console.log('Update after coming back from another tab');
+					unpausing = true; //Reusing this.
+					update();
+				}
+			}
+			
+			// set the initial state (but only if browser supports the Page Visibility API)
+			if( document[hidden] !== undefined )
+				onchange({type: document[hidden] ? "blur" : "focus"});
+		})();
+		
 		setInterval(update, 1000);
 		
 		</script>
@@ -644,15 +701,14 @@
 		</table>
 		<h5>Bugs</h5>
 		<ul>
-			<li>A second user will have to wait an extra song to get into the queue</li>
-			<li>Can't save/load playlist</li>
+			<li>Can't save/load playlist yet</li>
 			<li>Subtitles/annotations/quality/more videos can only be accessed in fullscreen mode</li>
 			<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
-			<li>Mobile version now seems to work, but requires clicking the video twice at the start.</li>
-			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins? Still not sure what happened with that bug, haven't been able to reproduce it</li>
-			<li>Tabbing away while no music is playing, then coming back, the music will start at the beginning of the loaded song rather than synchronized</li>
-			<li>Same song repeating over and over maybe can cause problems</li>
-			<li>Next up undefined can happen, at which point everything is broken I guess</li>
+			<li>Mobile version now seems to work, but requires clicking the video twice at the start</li>
+			<li>Mobile version characters for playlist rearrangements oddly sized compared to desktop version</li>
+			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins? Still not sure what happened with that bug, haven't been able to reproduce it (maybe fixed?)</li>
+			<li>Same song repeating over and over maybe can cause problems (maybe fixed?)</li>
+			<li>Next up undefined can happen, at which point everything is broken I guess (maybe fixed?)</li>
 		</ul>
 	</body>
 </html>
