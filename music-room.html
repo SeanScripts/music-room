@@ -52,6 +52,14 @@
 		.up, .down {
 			font-size: 21px;
 		}
+		.activeSong {
+			font-size: 20px;
+			font-weight: bold;
+		}
+		.inactiveSong {
+			font-size: 20px;
+			font-weight: normal;
+		}
 		.iframeWrapperSmall {
 			display: inline-block;
 			position: relative;
@@ -113,6 +121,7 @@
 	</head>
 	<body onload="init()">
 		<script>
+		var UPDATE_INTERVAL = 1000;
 		var MESSAGE_DURATION = 5000;
 		var FADE_DURATION = 2000;
 		var fadeTimerA = null;
@@ -162,6 +171,7 @@
 		var currentSong = 'https://www.youtube.com/embed/';
 		var lastTime = 0;
 		var playlistSize = 0;
+		var lastActiveIndex = -1;
 		
 		function init() {
 			getPlaylist();
@@ -180,6 +190,17 @@
 					updateDJList(res['queue']);
 					updateUserList(res['userList']);
 					updatePlaylistActiveSong(parseInt(res['playlistIndex']));
+					var toggleEl = document.getElementById('toggleplaylist');
+					if (res['usingPlaylist']) {
+						if (toggleEl.innerHTML != 'Deactivating...') {
+							toggleEl.innerHTML = 'Deactivate';
+						}
+					}
+					else {
+						if (toggleEl.innerHTML != 'Activating...') {
+							toggleEl.innerHTML = 'Activate';
+						}
+					}
 					// Update the current song, but only if not paused
 					if (!paused) {
 						updateSong(res['currentSong'], parseInt(res['time']))
@@ -193,20 +214,18 @@
 			xhttp.send();
 		}
 		
-		/*
-		function upkeep() {
-			// Run this periodically to fetch new data
-			getUserList();
-			getDJList();
-			var currdj = getCurrentDJ();
-			if (!paused) {
-				getSong();
-			}
-		}
-		*/
-		
 		function updatePlaylistActiveSong(index) {
-			// TODO: Simple class toggle for a class that I haven't made yet
+			var el = document.getElementById('list'+index);
+			if (el != null) {
+				el.className = 'activeSong';
+			}
+			if (lastActiveIndex != -1 && index != lastActiveIndex) {
+				var el_last = document.getElementById('list'+lastActiveIndex);
+				if (el_last != null) {
+					el_last.className = 'inactiveSong';
+				}
+			}
+			lastActiveIndex = index;
 		}
 		
 		function togglePause() {
@@ -232,19 +251,6 @@
 			}
 		}
 		
-		/*
-		function getCurrentDJ() {
-			var xhttp = new XMLHttpRequest();
-			xhttp.onreadystatechange = function() {
-				if (this.readyState == 4 && this.status == 200) {
-					document.getElementById('djcurr').innerHTML = xhttp.responseText;
-				}
-			};
-			xhttp.open('GET', 'dj', true);
-			xhttp.send();
-		}
-		*/
-		
 		function getPlaylist() {
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
@@ -255,31 +261,19 @@
 						console.log(playlist);
 						var playlisttext = '';
 						for (var i = 0; i < playlistSize; i++) {
-							playlisttext += "<li><button class=\"del\" id=\"del"+i+"\" onclick=\"remove("+i+")\">❌</button><button class=\"toTop\" id=\"toTop"+i+"\" onclick=\"moveToTop("+i+")\">⏫</button><button class=\"up\" id=\"up"+i+"\" onclick=\"moveUp("+i+")\">▲</button><button class=\"down\" id=\"down"+i+"\" onclick=\"moveDown("+i+")\">▼</button><button class=\"toBottom\" id=\"toBottom"+i+"\" onclick=\"moveToBottom("+i+")\">⏬</button>&nbsp;<span id=\"list"+i+"\">"+playlist[i]+"</span></li>"
+							playlisttext += "<li><button class=\"del\" id=\"del"+i+"\" onclick=\"remove("+i+")\">❌</button><button class=\"toTop\" id=\"toTop"+i+"\" onclick=\"moveToTop("+i+")\">⏫</button><button class=\"up\" id=\"up"+i+"\" onclick=\"moveUp("+i+")\">▲</button><button class=\"down\" id=\"down"+i+"\" onclick=\"moveDown("+i+")\">▼</button><button class=\"toBottom\" id=\"toBottom"+i+"\" onclick=\"moveToBottom("+i+")\">⏬</button>&nbsp;<span id=\"list"+i+"\" class=\"inactiveSong\">"+playlist[i]+"</span></li>"
 						}
 						document.getElementById('playlist').innerHTML = playlisttext;
 					}
 					else {
 						document.getElementById('playlist').innerHTML = '';
 					}
+					enableButtons();
 				}
 			};
 			xhttp.open('GET', 'playlist?name='+name+'&password='+password, true);
 			xhttp.send();
 		}
-		
-		/*
-		function getUserList() {
-			var xhttp = new XMLHttpRequest();
-			xhttp.onreadystatechange = function() {
-				if (this.readyState == 4 && this.status == 200) {
-					updateUserList(xhttp.responseText);
-				}
-			};
-			xhttp.open('GET', 'list', true);
-			xhttp.send();
-		}
-		*/
 		
 		function updateUserList(listText) {
 			var userlist = listText.split('\\');
@@ -294,19 +288,6 @@
 			document.getElementById('users').innerHTML = userstext;
 		}
 		
-		/*
-		function getDJList() {
-			var xhttp = new XMLHttpRequest();
-			xhttp.onreadystatechange = function() {
-				if (this.readyState == 4 && this.status == 200) {
-					updateDJList(xhttp.responseText);
-				}
-			};
-			xhttp.open('GET', 'queue', true);
-			xhttp.send();
-		}
-		*/
-		
 		function updateDJList(listText) {
 			var djlist = listText.split('\\');
 			for (var i = 0; i < 10; i++) {
@@ -317,44 +298,6 @@
 				document.getElementById('dj'+i).innerHTML = v
 			}
 		}
-		
-		// This is obsolete now, as are many of these functions
-		/*
-		function getSong() {
-			var responded = false;
-			var xhttp = new XMLHttpRequest();
-			xhttp.onreadystatechange = function() {
-				if (this.readyState == 4 && this.status == 200) {
-					var time = parseInt(xhttp.responseText);
-					if (lastTime == null || time < lastTime) {
-						var xhttp2 = new XMLHttpRequest();
-						xhttp2.onreadystatechange = function() {
-							if (this.readyState == 4 && this.status == 200) {
-								//console.log(time, lastTime);
-								if (xhttp2.responseText != 'https://www.youtube.com/embed/') {
-									console.log('Changing song');
-									currentSong = xhttp2.responseText;
-									document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=1&autoplay=1&start=' + time;
-									setWrapperSize(false);
-								}
-								else {
-									lastTime = 0;
-									currentSong = xhttp2.responseText;
-									document.getElementById('player').src = currentSong;
-									setWrapperSize(true);
-								}
-							}
-						};
-						xhttp2.open('GET', 'song', true);
-						xhttp2.send();
-					}
-					lastTime = parseInt(time)+1; // Add one to prevent any edge cases... Hopefully?
-				}
-			};
-			xhttp.open('GET', 'time', true);
-			xhttp.send();
-		}
-		*/
 		
 		function updateSong(newSong, newTime) {
 			//console.log('Updating song');
@@ -392,27 +335,6 @@
 			}
 			//lastTime = newTime;
 		}
-		
-		/*
-		function getTime() {
-			var xhttp = new XMLHttpRequest();
-			xhttp.onreadystatechange = function() {
-				if (this.readyState == 4 && this.status == 200) {
-					if (currentSong != 'https://www.youtube.com/embed/') {
-						document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=1&autoplay=1&start=' + xhttp.responseText;
-						lastTime = parseInt(xhttp.responseText)+1;
-						setWrapperSize(false);
-					}
-					else {
-						lastTime = 0;
-						setWrapperSize(true);
-					}
-				}
-			};
-			xhttp.open('GET', 'time', true);
-			xhttp.send();
-		}
-		*/
 		
 		function add() {
 			var songId = document.getElementById('tempsongid').value;
@@ -462,24 +384,52 @@
 		}
 		
 		function togglePlaylist() {
-			if (document.getElementById('toggleplaylist').innerHTML == 'Activate') {
-				document.getElementById('toggleplaylist').innerHTML = 'Deactivate';
+			var el = document.getElementById('toggleplaylist');
+			if (el.innerHTML == 'Activating' || el.innerHTML == 'Deactivating') {
+				// Pressing the button too fast...
 			}
 			else {
-				document.getElementById('toggleplaylist').innerHTML = 'Activate';
-			}
-			var xhttp = new XMLHttpRequest();
-			xhttp.onreadystatechange = function() {
-				if (this.readyState == 4 && this.status == 200) {
-					//TODO: Maybe don't change the button if there was an error? Idk
+				if (el.innerHTML == 'Activate') {
+					el.innerHTML = 'Activating...';
 				}
-			};
-			xhttp.open('GET', 'toggle?name='+name+'&password='+password, true);
-			xhttp.send();
+				else {
+					el.innerHTML = 'Deactivating...';
+				}
+				var xhttp = new XMLHttpRequest();
+				xhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						//TODO: Maybe don't change the button if there was an error? Idk
+					}
+				};
+				xhttp.open('GET', 'toggle?name='+name+'&password='+password, true);
+				xhttp.send();
+			}
+		}
+		
+		// Helps prevent extra rearranging while the server is still processing it
+		function disableButtons() {
+			for (var i = 0; i < playlistSize; i++) {
+				document.getElementById('del'+i).disabled = true;
+				document.getElementById('toTop'+i).disabled = true;
+				document.getElementById('up'+i).disabled = true;
+				document.getElementById('down'+i).disabled = true;
+				document.getElementById('toBottom'+i).disabled = true;
+			}
+		}
+		
+		function enableButtons() {
+			for (var i = 0; i < playlistSize; i++) {
+				document.getElementById('del'+i).disabled = false;
+				document.getElementById('toTop'+i).disabled = false;
+				document.getElementById('up'+i).disabled = false;
+				document.getElementById('down'+i).disabled = false;
+				document.getElementById('toBottom'+i).disabled = false;
+			}
 		}
 		
 		function remove(i) {
 			console.log('Deleting song '+i);
+			disableButtons();
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
 				if (this.readyState == 4 && this.status == 200) {
@@ -493,6 +443,7 @@
 		
 		function moveUp(i) {
 			if (i != 0) {
+				disableButtons();
 				var xhttp = new XMLHttpRequest();
 				xhttp.onreadystatechange = function() {
 					if (this.readyState == 4 && this.status == 200) {
@@ -507,6 +458,7 @@
 		
 		function moveDown(i) {
 			if (i != playlistSize-1) {
+				disableButtons();
 				var xhttp = new XMLHttpRequest();
 				xhttp.onreadystatechange = function() {
 					if (this.readyState == 4 && this.status == 200) {
@@ -521,6 +473,7 @@
 		
 		function moveToTop(i) {
 			if (i != 0) {
+				disableButtons();
 				var xhttp = new XMLHttpRequest();
 				xhttp.onreadystatechange = function() {
 					if (this.readyState == 4 && this.status == 200) {
@@ -535,6 +488,7 @@
 		
 		function moveToBottom(i) {
 			if (i != playlistSize-1) {
+				disableButtons();
 				var xhttp = new XMLHttpRequest();
 				xhttp.onreadystatechange = function() {
 					if (this.readyState == 4 && this.status == 200) {
@@ -586,14 +540,6 @@
 			xhttp.send();
 			
 		}
-		
-		/*
-		// This is not really necessary since you can just copy and paste the text list of IDs into the add to playlist form
-		function loadPlaylist() {
-			//Upload a txt file, send it to the server
-			//Note: Do not allow files over 1981 + usernamelength + passwordlength bytes.
-		}
-		*/
 		
 		document.addEventListener('click', function() {
 			muted = 0;
@@ -648,7 +594,7 @@
 				onchange({type: document[hidden] ? "blur" : "focus"});
 		})();
 		
-		setInterval(update, 1000);
+		setInterval(update, UPDATE_INTERVAL);
 		
 		</script>
 		<table class="maintable">
@@ -676,7 +622,7 @@
 					<br>
 					<h4>Temporary Song</h4>
 					<p>Enter an ID to add a temporary song:</p>
-					<input id="tempsongid" type="text" name="tempsongid"></input>
+					<input id="tempsongid" type="text" name="tempsongid" maxlength="50"></input>
 					<button onclick="add()">Submit</button>
 					<p class="responseOff" id="responsetemp">&nbsp;</p>
 					<button onclick="voteSkip()">Vote to Skip</button>
@@ -696,7 +642,7 @@
 					<br>
 					<h4>Add to Playlist</h4>
 					<!--<p>Enter an ID to add to your list:</p>-->
-					<input id="songid" type="text" name="songid"></input>
+					<input id="songid" type="text" name="songid" maxlength="1199"></input>
 					<button onclick="listAdd()">Submit</button>
 					<p class="responseOff" id="response">&nbsp;</p>
 					<button onclick="savePlaylist()">Save Playlist</button><!--<button onclick="loadPlaylist()">Load Playlist</button>-->

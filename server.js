@@ -19,7 +19,7 @@ var baseDirectory = __dirname;   // or whatever base directory you want
 
 // Add files to this list that should not be accessible by users
 // Examples are this file, any other server files, database files, probably text files for notes/ideas, etc
-var blocked_paths = ['/nodetest.js', '/test.db', '/header.html', '/footer.html', '/example_secret_page.html', '/music-room.html'];
+var blocked_paths = ['/nodetest.js', '/test.db', '/header.html', '/footer.html', '/example_secret_page.html', '/music-room.html', '/login.html'];
 
 var port = process.env.PORT || 80; // Required for Heroku. Assuming this won't just give an error.
 
@@ -104,10 +104,15 @@ function query_callback(sql, callback) {
 
 // Actual code
 
+var MAX_USERS = 50; // Maybe...
+var MAX_USERPASS_LENGTH = 20;
+var MAX_PLAYLIST_SIZE = 100;
+var MAX_PLAYLIST_INPUT_TEXT_SIZE = MAX_PLAYLIST_SIZE*12 - 1;
 var QUEUE_LENGTH = 10;
 var SONG_END_DELAY = 2000; //ms
 var INACTIVE_TIME = 5000; //ms
 var SKIP_VOTE_RATIO = 0.5; //Or maybe more
+var SKIP_TIME_DELAY = 1000; //ms
 
 // Matched per user
 var users = [];
@@ -119,6 +124,7 @@ var playlistsCommon = []; // More descriptive titles
 var playlistIndices = [];
 var tempSongs = [];
 var skipVotes = [];
+var songsSinceInactive = [];
 
 // Order of the users to cycle through
 var currQueueIndex = 0;
@@ -139,21 +145,27 @@ var timer = null;
 
 // Add a user to the list when they arrive, or login otherwise
 function login(user, password) {
-	if (user == '' || password == '') {
+	if (user == '' || password == '' || user.length > MAX_USERPASS_LENGTH || password.length > MAX_USERPASS_LENGTH) {
 		return false;
 	}
 	var index = users.indexOf(user);
 	if (index == -1) {
-		users.push(user);
-		passwords.push(password);
-		lastActive.push(Date.now());
-		usingPlaylist.push(false);
-		playlistIndices.push(0);
-		playlists.push([]);
-		playlistsCommon.push([]);
-		tempSongs.push('');
-		skipVotes.push(false);
-		return true;
+		if (users.length < MAX_USERS) {
+			users.push(user);
+			passwords.push(password);
+			lastActive.push(Date.now());
+			usingPlaylist.push(false);
+			playlistIndices.push(0);
+			playlists.push([]);
+			playlistsCommon.push([]);
+			tempSongs.push('');
+			skipVotes.push(false);
+			songsSinceInactive.push(0);
+			return true;
+		}
+		else {
+			return false; //TODO: Really needs some kind of feedback
+		}
 	}
 	// User is already in system
 	// Validate password
@@ -242,6 +254,24 @@ function startSong(user, songId) {
 		// Advance the playlist index
 		playlistIndices[userIndex] = (playlistIndices[userIndex]+1)%playlists[userIndex].length;
 	}
+	var time = Date.now();
+	// If the user is inactive, increase their inactivity song count
+	if (time - lastActive[i] < INACTIVE_TIME) {
+		songsSinceInactive[userIndex]++;
+		if (songsSinceInactive[userIndex] > MAX_INACTIVE_SONGS) {
+			// Remove from queue!
+			usingPlaylist[userIndex] = false;
+			var idx = userQueueOrder.indexOf(user);
+			userQueueOrder.splice(idx, 1);
+			if (currQueueIndex >= idx) {
+				currQueueIndex--;
+			}
+			if (userQueueOrder.length == 0) {
+				// This is the last song
+				currQueueIndex = 0;
+			}
+		}
+	}
 	// Update the queue again
 	updateQueue();
 	console.log('Song started: '+currentSongUrl+' by '+currentUser);
@@ -250,8 +280,6 @@ function startSong(user, songId) {
 	const options = new URL(currentSongUrl);
 	const req = https.get(options, (res) => {
 		if (res.statusCode == 200) {
-			//console.log(`STATUS: ${res.statusCode}`);
-			//console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
 			console.log('Start scrape length');
 			res.setEncoding('utf8');
 			var resstr = '';
@@ -269,10 +297,6 @@ function startSong(user, songId) {
 					let diff = currTime - timeStarted;
 					let remaining = duration - diff;
 					// Start the next song at the end of this one
-					// Need to not wait the whole time at once because of the option to skip
-					if (!skipping) {
-						//TODO
-					}
 					console.log('Waiting for end of song...');
 					timer = setTimeout(endSong, remaining + SONG_END_DELAY);
 				}
@@ -495,6 +519,7 @@ function update(user, password, response) {
 			// Find info for now
 			var res = {};
 			res['userList'] = getUserList();
+			res['usingPlaylist'] = usingPlaylist[index];
 			res['queue'] = getUserQueue();
 			res['currentUser'] = getCurrentUser();
 			res['currentSong'] = getCurrentSong();
@@ -576,6 +601,10 @@ function addSong(user, password, songId, response) {
 
 // Add song to playlist
 function addSongToPlaylist(user, password, songId, response) {
+	if (songId.length > MAX_PLAYLIST_INPUT_TEXT_SIZE) {
+		response.writeHead(400);
+		response.end('That\'s way too many songs.');
+	}
 	console.log('Start add song to playlist');
 	var valid = validateUser(user, password);
 	if (!valid) {
@@ -678,8 +707,14 @@ function addSongToPlaylist(user, password, songId, response) {
 								// Add all the songs to the playlist here
 								for (var j = 0; j < songIds.length; j++) {
 									if (is_valid[j]) {
-										playlists[index].push(songIds[j]);
-										playlistsCommon[index].push(temp_names[j]);
+										if (playlists[index].length < MAX_PLAYLIST_SIZE) {
+											playlists[index].push(songIds[j]);
+											playlistsCommon[index].push(temp_names[j]);
+										}
+										else {
+											console.log(user + ' reached max playlist size');
+											feedback = 'You have reached the maximum playlist size.';
+										}
 									}
 								}
 								if (usingPlaylist[index] && playlists[index].length == 1) {
@@ -710,8 +745,14 @@ function addSongToPlaylist(user, password, songId, response) {
 							}
 							for (var j = 0; j < songIds.length; j++) {
 								if (is_valid[j]) {
-									playlists[index].push(songIds[j]);
-									playlistsCommon[index].push(temp_names[j]);
+									if (playlists[index].length < MAX_PLAYLIST_SIZE) {
+										playlists[index].push(songIds[j]);
+										playlistsCommon[index].push(temp_names[j]);
+									}
+									else {
+										console.log(user + ' reached max playlist size');
+										feedback = 'You have reached the maximum playlist size.';
+									}
 								}
 							}
 							if (usingPlaylist[index] && playlists[index].length == 1) {
@@ -809,17 +850,6 @@ function moveSong(user, password, i, j) {
 				// Move the songs
 				arrayMove(playlists[index], i, j);
 				arrayMove(playlistsCommon[index], i, j);
-				// Swap the songs
-				/*
-				var temp = playlists[index][i];
-				playlists[index][i] = playlists[index][j];
-				playlists[index][j] = temp;
-				temp = playlistsCommon[index][i];
-				playlistsCommon[index][i] = playlistsCommon[index][j];
-				playlistsCommon[index][j] = temp;
-				*/
-				//TODO: If length is kept track of here, swap it as well
-				// Is anything else swapped?
 				// Update the queue now
 				updateQueue();
 			}
@@ -864,7 +894,7 @@ function voteSkip(user, password, reason) {
 					console.log('Skipping song');
 					skipping = true;
 					clearTimeout(timer);
-					timer = setTimeout(endSong, 5);
+					timer = setTimeout(endSong, SKIP_TIME_DELAY);
 					//skipping = false;
 					//resetVotes();
 					return true;
@@ -903,41 +933,6 @@ function savePlaylist(user, password) {
 		}
 	}
 }
-
-// I think this might be a little easier just allowing multiple song IDs to be entered in the add to playlist input.
-//NOTE: Maximum number of songs allowed: (2048 - 63 - usernamelength - passwordlength + 1)/12
-//So approximately 164 I guess.
-/*
-function loadPlaylist(user, password, data) {
-	console.log('Start load playlist');
-	var valid = validateUser(user, password);
-	if (!valid) {
-		return 'false';
-	}
-	else {
-		var index = users.indexOf(user);
-		if (index != -1 && data != '') {
-			var temp = data.split('.');
-			// Should probably check all of the data to make sure it's valid and they didn't just send nonsense
-			for (var i = 0; i < temp.length; i++) {
-				//TODO: Check playlist data
-				
-			}
-			playlists[index] = temp;
-			return 'true';
-		}
-		else {
-			return 'false';
-		}
-	}
-}
-*/
-
-// Test
-
-//startSong('None', 'WtfsIBwOobA');
-
-// Main
 
 http.createServer(function (request, response) {
     try {
