@@ -571,20 +571,29 @@
 		}
 		
 		function savePlaylist() {
-			/*
-			//Make list as plain text
-			//TODO
-			//Download a txt file
-			var data = new Blob([text], {type: 'text/plain'});
-			var url = window.URL.createObjectURL(data);
-			document.getElementById('download_link').href = url;
-			*/
-		}
-		
-		function loadPlaylist() {
-			//Upload a txt file, send it to the server
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					//Download a txt file
+					if (xhttp.responseText != '') {
+						var data = new Blob([xhttp.responseText], {type: 'text/plain'});
+						var url = window.URL.createObjectURL(data);
+						window.open(url, '_blank');
+					}
+				}
+			};
+			xhttp.open('GET', 'save?name='+name+'&password='+password, true);
+			xhttp.send();
 			
 		}
+		
+		/*
+		// This is not really necessary since you can just copy and paste the text list of IDs into the add to playlist form
+		function loadPlaylist() {
+			//Upload a txt file, send it to the server
+			//Note: Do not allow files over 1981 + usernamelength + passwordlength bytes.
+		}
+		*/
 		
 		document.addEventListener('click', function() {
 			muted = 0;
@@ -690,7 +699,7 @@
 					<input id="songid" type="text" name="songid"></input>
 					<button onclick="listAdd()">Submit</button>
 					<p class="responseOff" id="response">&nbsp;</p>
-					<button onclick="savePlaylist()">Save Playlist</button><button onclick="loadPlaylist()">Load Playlist</button>
+					<button onclick="savePlaylist()">Save Playlist</button><!--<button onclick="loadPlaylist()">Load Playlist</button>-->
 				</td>
 			</tr>
 			<tr>
@@ -701,7 +710,6 @@
 		</table>
 		<h5>Bugs</h5>
 		<ul>
-			<li>Can't save/load playlist yet</li>
 			<li>Subtitles/annotations/quality/more videos can only be accessed in fullscreen mode</li>
 			<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
 			<li>Mobile version now seems to work, but requires clicking the video twice at the start</li>
@@ -709,6 +717,7 @@
 			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins? Still not sure what happened with that bug, haven't been able to reproduce it (maybe fixed?)</li>
 			<li>Same song repeating over and over maybe can cause problems (maybe fixed?)</li>
 			<li>Next up undefined can happen, at which point everything is broken I guess (maybe fixed?)</li>
+			<li>Activate/deactivate may be swapped sometimes (maybe fixed?)</li>
 		</ul>
 	</body>
 </html>

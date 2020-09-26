@@ -522,85 +522,8 @@ function addSong(user, password, songId, response) {
 	}
 	else {
 		var feedback = 'Temporary song added to queue. ';
-		/*
-		for (i = 0; i < userQueue.length; i++) {
-			if (userQueue[i] == reqUser) {
-				valid = false;
-				feedback = 'You are already in the queue.'
-			}
-		}
-		*/
-		if (valid) {
-			// Verify song id
-			console.log('Start scraping length of temp song');
-			var testSongUrl = 'https://www.youtube.com/watch?v=' + songId;
-			const options = new URL(testSongUrl);
-			const req = https.get(options, (res) => {
-				if (res.statusCode == 200) {
-					res.setEncoding('utf8');
-					var resstr = '';
-					res.on('data', (chunk) => {
-						resstr += chunk;
-					});
-					res.on('end', () => {
-						console.log('Got html for temp song');
-						let re = /approxDurationMs\\\":\\\"([0-9]+)\\\"/;
-						var arr = resstr.match(re);
-						if (arr != null && arr.length > 1) {
-							// Verify that video is embeddable
-							let re_emb = /playableInEmbed\\\":([a-z]+),/;
-							var arr_emb = resstr.match(re_emb);
-							if (arr_emb != null && arr_emb.length > 1 && arr_emb[1] == 'true') {
-								var index = users.indexOf(user);
-								tempSongs[index] = songId;
-								if (userQueueOrder.indexOf(user) == -1) {
-									userQueueOrder.push(user);
-								}
-								console.log('Temp song added to queue');
-								updateQueue();
-								feedback += 'You are in position '+userQueueOrder.length+'.'
-							}
-							else {
-								feedback = 'Video is not embeddable.';
-							}
-						}
-						else {
-							valid = false;
-							feedback = 'Invalid song id.';
-						}
-						response.writeHead(200);
-						response.end(feedback);
-					});
-				}
-				else {
-					valid = false;
-					feedback = 'Could not find URL.';
-					response.writeHead(200);
-					response.end(feedback);
-				}
-			});
-		}
-		else {
-			response.writeHead(200);
-			response.end(feedback);
-		}
-	}
-	console.log('End add temp song');
-}
-
-// Add song to playlist
-function addSongToPlaylist(user, password, songId, response) {
-	console.log('Start add song to playlist');
-	var valid = validateUser(user, password);
-	if (!valid) {
-		response.writeHead(403);
-		response.end();
-	}
-	else {
-		var index = users.indexOf(user);
-		var feedback = 'Song added to playlist. ';
-		console.log('Start scraping length of song');
 		// Verify song id
+		console.log('Start scraping length of temp song');
 		var testSongUrl = 'https://www.youtube.com/watch?v=' + songId;
 		const options = new URL(testSongUrl);
 		const req = https.get(options, (res) => {
@@ -611,7 +534,7 @@ function addSongToPlaylist(user, password, songId, response) {
 					resstr += chunk;
 				});
 				res.on('end', () => {
-					console.log('Got html of song');
+					console.log('Got html for temp song');
 					let re = /approxDurationMs\\\":\\\"([0-9]+)\\\"/;
 					var arr = resstr.match(re);
 					if (arr != null && arr.length > 1) {
@@ -619,32 +542,14 @@ function addSongToPlaylist(user, password, songId, response) {
 						let re_emb = /playableInEmbed\\\":([a-z]+),/;
 						var arr_emb = resstr.match(re_emb);
 						if (arr_emb != null && arr_emb.length > 1 && arr_emb[1] == 'true') {
-							playlists[index].push(songId);
-							let re2 = /title\\\":\\\"(.*?)\\\",\\\"l/; // Lazy quantifier really helps here.
-							var arr2 = resstr.match(re2);
-							if (arr2 != null && arr2.length > 1) {
-								var songTitle = arr2[1];
-								// Remove backslashes to not mess up the list
-								songTitle = songTitle.replace(/\\u0026/g, '&'); //There may be others like this...
-								songTitle = songTitle.replace(/\\/g, '');
-								console.log(songTitle);
-								//console.log(songTitle.length);
-								playlistsCommon[index].push(songTitle);
-								//console.log(playlistsCommon);
-							}
-							else {
-								playlistsCommon[index].push(songId);
-								feedback += 'Could not find title.';
-							}
-							console.log('Added song: '+songId);
-							console.log('Song added to playlist');
-							if (usingPlaylist[index] && playlists[index].length == 1) {
-								// This song was just added to an empty, active playlist
-								// So add this user to the queue
-								console.log('Adding to user queue order because this is the first song added to an active playlist');
+							var index = users.indexOf(user);
+							tempSongs[index] = songId;
+							if (userQueueOrder.indexOf(user) == -1) {
 								userQueueOrder.push(user);
 							}
+							console.log('Temp song added to queue');
 							updateQueue();
+							feedback += 'You are in position '+userQueueOrder.length+'.'
 						}
 						else {
 							feedback = 'Video is not embeddable.';
@@ -665,6 +570,174 @@ function addSongToPlaylist(user, password, songId, response) {
 				response.end(feedback);
 			}
 		});
+	}
+	console.log('End add temp song');
+}
+
+// Add song to playlist
+function addSongToPlaylist(user, password, songId, response) {
+	console.log('Start add song to playlist');
+	var valid = validateUser(user, password);
+	if (!valid) {
+		response.writeHead(403);
+		response.end();
+	}
+	else {
+		var index = users.indexOf(user);
+		if (index != -1) {
+			var feedback = 'Song added to playlist.';
+			var songIds = songId.split('.');
+			console.log(songIds);
+			if (songIds.length > 1) {
+				var feedback = songIds.length+' songs added to playlist.'
+			}
+			var finished = 0;
+			var failed = 0;
+			// Placeholder lists for loading multiple songs
+			var is_valid = [];
+			var temp_names = [];
+			for (var i = 0; i < songIds.length; i++) {
+				is_valid.push(false);
+				temp_names.push('');
+			}
+			// Let solves the whole async problem here...
+			for (let i = 0; i < songIds.length; i++) {
+				console.log('Start scraping length of song '+i);
+				// Verify song id
+				var testSongUrl = 'https://www.youtube.com/watch?v=' + songIds[i];
+				const options = new URL(testSongUrl);
+				const req = https.get(options, (res) => {
+					if (res.statusCode == 200) {
+						console.log('songIds: '+songIds);
+						res.setEncoding('utf8');
+						var resstr = '';
+						res.on('data', function(chunk) {
+							resstr += chunk;
+						});
+						res.on('end', function() {
+							console.log('SongIds: '+songIds);
+							console.log('i: '+i);
+							console.log('Got html of song');
+							let re = /approxDurationMs\\\":\\\"([0-9]+)\\\"/;
+							var arr = resstr.match(re);
+							if (arr != null && arr.length > 1) {
+								// Verify that video is embeddable
+								let re_emb = /playableInEmbed\\\":([a-z]+),/;
+								var arr_emb = resstr.match(re_emb);
+								if (arr_emb != null && arr_emb.length > 1 && arr_emb[1] == 'true') {
+									is_valid[i] = true;
+									//playlists[index].push(songIds[i]);
+									let re2 = /title\\\":\\\"(.*?)\\\",\\\"l/; // Lazy quantifier really helps here.
+									var arr2 = resstr.match(re2);
+									if (arr2 != null && arr2.length > 1) {
+										var songTitle = arr2[1];
+										// Remove backslashes to not mess up the list
+										songTitle = songTitle.replace(/\\u0026/g, '&'); //There may be others like this...
+										songTitle = songTitle.replace(/\\/g, '');
+										console.log(songTitle);
+										//console.log(songTitle.length);
+										temp_names[i] = songTitle;
+										//playlistsCommon[index].push(songTitle);
+										//console.log(playlistsCommon);
+									}
+									else {
+										temp_names[i] = songIds[i];
+										//playlistsCommon[index].push(songIds[i]);
+										feedback += 'Could not find title.';
+									}
+									console.log('Added song: '+songIds[i]);
+									console.log('Song added to playlist');
+									/*
+									if (usingPlaylist[index] && playlists[index].length == 1) {
+										// This song was just added to an empty, active playlist
+										// So add this user to the queue
+										console.log('Adding to user queue order because this is the first song added to an active playlist');
+										userQueueOrder.push(user);
+									}
+									*/
+									//updateQueue();
+								}
+								else {
+									feedback = 'Video is not embeddable.';
+									failed++;
+								}
+							}
+							else {
+								feedback = 'Invalid song id.';
+								failed++;
+							}
+							//response.writeHead(200);
+							//response.end(feedback);
+							finished++;
+							if (finished == songIds.length) {
+								console.log('Finished adding to playlist');
+								// This was the last one, repond here
+								if (songIds.length != 1) {
+									feedback += ' '+(100*(finished-failed)/finished)+'%'
+								}
+								// Add all the songs to the playlist here
+								for (var j = 0; j < songIds.length; j++) {
+									if (is_valid[j]) {
+										playlists[index].push(songIds[j]);
+										playlistsCommon[index].push(temp_names[j]);
+									}
+								}
+								if (usingPlaylist[index] && playlists[index].length == 1) {
+									// This song was just added to an empty, active playlist
+									// So add this user to the queue
+									console.log('Adding to user queue order because this is the first song added to an active playlist');
+									userQueueOrder.push(user);
+								}
+								if (finished-failed > 0) {
+									updateQueue();
+								}
+								response.writeHead(200);
+								response.end(feedback);
+							}
+						});
+					}
+					else {
+						feedback = 'Could not find URL.';
+						//response.writeHead(200);
+						//response.end(feedback);
+						failed++;
+						finished++;
+						if (finished == songIds.length) {
+							console.log('Finished adding to playlist, but badly');
+							//This was the last one, repond here
+							if (songIds.length != 1) {
+								feedback += ' '+(100*(finished-failed)/finished)+'%'
+							}
+							for (var j = 0; j < songIds.length; j++) {
+								if (is_valid[j]) {
+									playlists[index].push(songIds[j]);
+									playlistsCommon[index].push(temp_names[j]);
+								}
+							}
+							if (usingPlaylist[index] && playlists[index].length == 1) {
+								// This song was just added to an empty, active playlist
+								// So add this user to the queue
+								console.log('Adding to user queue order because this is the first song added to an active playlist');
+								userQueueOrder.push(user);
+							}
+							if (finished-failed > 0) {
+								updateQueue();
+							}
+							response.writeHead(200);
+							response.end(feedback);
+						}
+					}
+					
+				});
+			}
+			//response.writeHead(200);
+			//response.end(feedback);
+		}
+		else {
+			console.log('Something is wrong.');
+			response.writeHead(500);
+			response.end('You\'ve really messed something up.');
+		}
 	}
 	console.log('End add song to playlist');
 }
@@ -724,7 +797,7 @@ function arrayMove(arr, fromIndex, toIndex) {
 }
 
 function moveSong(user, password, i, j) {
-	console.log('Start delete song from playlist');
+	console.log('Start move song');
 	var valid = validateUser(user, password);
 	if (!valid) {
 		return false;
@@ -813,6 +886,52 @@ function resetVotes() {
 		skipVotes[i] = false;
 	}
 }
+
+function savePlaylist(user, password) {
+	console.log('Start save playlist');
+	var valid = validateUser(user, password);
+	if (!valid) {
+		return '';
+	}
+	else {
+		var index = users.indexOf(user);
+		if (index != -1 && playlists[index].length > 0) {
+			return playlists[index].join('.');
+		}
+		else {
+			return '';
+		}
+	}
+}
+
+// I think this might be a little easier just allowing multiple song IDs to be entered in the add to playlist input.
+//NOTE: Maximum number of songs allowed: (2048 - 63 - usernamelength - passwordlength + 1)/12
+//So approximately 164 I guess.
+/*
+function loadPlaylist(user, password, data) {
+	console.log('Start load playlist');
+	var valid = validateUser(user, password);
+	if (!valid) {
+		return 'false';
+	}
+	else {
+		var index = users.indexOf(user);
+		if (index != -1 && data != '') {
+			var temp = data.split('.');
+			// Should probably check all of the data to make sure it's valid and they didn't just send nonsense
+			for (var i = 0; i < temp.length; i++) {
+				//TODO: Check playlist data
+				
+			}
+			playlists[index] = temp;
+			return 'true';
+		}
+		else {
+			return 'false';
+		}
+	}
+}
+*/
 
 // Test
 
@@ -970,6 +1089,23 @@ http.createServer(function (request, response) {
 				reqPassword = params['password'];
 				var reqReason = params['reason'];
 				var valid = voteSkip(reqUser, reqPassword, reqReason);
+				response.writeHead(200);
+				response.end(''+valid);
+			}
+			else if (pathname == '/save') {
+				var params = url.parse(request.url, true).query;
+				reqUser = params['name'];
+				reqPassword = params['password'];
+				var valid = savePlaylist(reqUser, reqPassword);
+				response.writeHead(200);
+				response.end(''+valid);
+			}
+			else if (pathname == '/load') {
+				var params = url.parse(request.url, true).query;
+				reqUser = params['name'];
+				reqPassword = params['password'];
+				reqData = params['data'];
+				var valid = loadPlaylist(reqUser, reqPassword, reqData);
 				response.writeHead(200);
 				response.end(''+valid);
 			}
