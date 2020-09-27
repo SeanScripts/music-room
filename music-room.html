@@ -330,6 +330,8 @@
 					else {
 						console.log('Changing song');
 						currentSong = newSong;
+						// Change title
+						document.head.title.innerHTML = currentSong;
 						// Mute added to align with Google's policies about autoplay
 						document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=1&autoplay=1&mute='+muted+'&start=' + newTime;
 					}
@@ -337,6 +339,8 @@
 					unpausing = false; // Has to be set here or it will be asynchronously reset too early!
 				}
 				else if (currentSong != 'https://www.youtube.com/embed/') {
+					// Change title
+					document.head.title.innerHTML = 'Music Room;
 					lastTime = 0;
 					currentSong = newSong;
 					document.getElementById('player').src = currentSong;
@@ -348,6 +352,8 @@
 		
 		function add() {
 			var songId = document.getElementById('tempsongid').value;
+			// Clear the textbox
+			document.getElementById('tempsongid').value = '';
 			console.log(songId);
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
@@ -373,6 +379,8 @@
 		
 		function listAdd() {
 			var songId = document.getElementById('songid').value;
+			// Clear the textbox
+			document.getElementById('songid').value = '';
 			console.log(songId);
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
@@ -678,6 +686,8 @@
 		</table>
 		<h5>Bugs</h5>
 		<ul>
+			<li>Temporary songs only allow you to play one song, so if you a second temporary song before your temporary song plays, the new one will overwrite it</li>
+			<li>Title of video does not show on mobile</li>
 			<li>Subtitles/annotations/quality/more videos can only be accessed in fullscreen mode</li>
 			<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
 			<li>Mobile version now seems to work, but requires clicking the video twice at the start</li>

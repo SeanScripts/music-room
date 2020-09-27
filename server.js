@@ -114,7 +114,7 @@ var SONG_END_DELAY = 2000; //ms
 var INACTIVE_TIME = 5000; //ms
 var SKIP_VOTE_RATIO = 0.5; //Or maybe more
 var SKIP_TIME_DELAY = 1000; //ms
-var NEWCOMER_COOLDOWN = 1000*60; //ms, TODO: Temporary, should be like 12-24 hours
+var NEWCOMER_COOLDOWN = 1000*60*60*12; //ms
 
 // Matched per user
 var users = [];
@@ -214,7 +214,7 @@ function togglePlaylist(user, password) {
 					userQueueOrder.push(user);
 					// Check to see if they are a newcomer
 					var time = Date.now();
-					if (time - newcomerTime[index] > NEWCOMER_COOLDOWN) {
+					if (time - newcomerTime[index] > NEWCOMER_COOLDOWN && newcomers.indexOf(user) == -1) {
 						newcomers.push(user);
 						newcomerTime[index] = time;
 					}
@@ -642,7 +642,7 @@ function addSong(user, password, songId, response) {
 							}
 							// Check to see if newcomer
 							var time = Date.now();
-							if (time - newcomerTime[index] > NEWCOMER_COOLDOWN) {
+							if (time - newcomerTime[index] > NEWCOMER_COOLDOWN && newcomers.indexOf(user) == -1) {
 								newcomers.push(user);
 								newcomerTime[index] = time;
 							}
@@ -792,16 +792,18 @@ function addSongToPlaylist(user, password, songId, response) {
 									}
 								}
 								// Make sure the user isn't already in the user queue order
-								if (usingPlaylist[index] && playlists[index].length == 1 && userQueueOrder.indexOf(user) == -1) {
+								if (usingPlaylist[index] && playlists[index].length == 1) {
 									// This song was just added to an empty, active playlist
 									// So add this user to the queue
-									console.log('Adding to user queue order because this is the first song added to an active playlist');
-									userQueueOrder.push(user);
-									// Check to see if newcomer
-									var time = Date.now();
-									if (time - newcomerTime[index] > NEWCOMER_COOLDOWN) {
-										newcomers.push(user);
-										newcomerTime[index] = time;
+									if (userQueueOrder.indexOf(user) == -1) {
+										console.log('Adding to user queue order because this is the first song added to an active playlist');
+										userQueueOrder.push(user);
+										// Check to see if newcomer
+										var time = Date.now();
+										if (time - newcomerTime[index] > NEWCOMER_COOLDOWN && newcomers.indexOf(user) == -1) {
+											newcomers.push(user);
+											newcomerTime[index] = time;
+										}
 									}
 								}
 								if (finished-failed > 0) {
@@ -839,13 +841,15 @@ function addSongToPlaylist(user, password, songId, response) {
 							if (usingPlaylist[index] && playlists[index].length == 1) {
 								// This song was just added to an empty, active playlist
 								// So add this user to the queue
-								console.log('Adding to user queue order because this is the first song added to an active playlist');
-								userQueueOrder.push(user);
-								// Check to see if newcomer
-								var time = Date.now();
-								if (time - newcomerTime[index] > NEWCOMER_COOLDOWN) {
-									newcomers.push(user);
-									newcomerTime[index] = time;
+								if (userQueueOrder.indexOf(user) == -1) {
+									console.log('Adding to user queue order because this is the first song added to an active playlist');
+									userQueueOrder.push(user);
+									// Check to see if newcomer
+									var time = Date.now();
+									if (time - newcomerTime[index] > NEWCOMER_COOLDOWN && newcomers.indexOf(user) == -1) {
+										newcomers.push(user);
+										newcomerTime[index] = time;
+									}
 								}
 							}
 							if (finished-failed > 0) {
