@@ -108,11 +108,13 @@ var MAX_USERS = 50; // Maybe...
 var MAX_USERPASS_LENGTH = 20;
 var MAX_PLAYLIST_SIZE = 100;
 var MAX_PLAYLIST_INPUT_TEXT_SIZE = MAX_PLAYLIST_SIZE*12 - 1;
+var MAX_INACTIVE_SONGS = 5;
 var QUEUE_LENGTH = 10;
 var SONG_END_DELAY = 2000; //ms
 var INACTIVE_TIME = 5000; //ms
 var SKIP_VOTE_RATIO = 0.5; //Or maybe more
 var SKIP_TIME_DELAY = 1000; //ms
+var NEWCOMER_COOLDOWN = 1000*60; //ms, TODO: Temporary, should be like 12-24 hours
 
 // Matched per user
 var users = [];
@@ -125,6 +127,7 @@ var playlistIndices = [];
 var tempSongs = [];
 var skipVotes = [];
 var songsSinceInactive = [];
+var newcomerTime = []; // For newcomer cooldown
 
 // Order of the users to cycle through
 var currQueueIndex = 0;
@@ -132,6 +135,9 @@ var userQueueOrder = [];
 
 var userQueue = []; // Calculated next n players
 var songIdQueue = []; // Calculated next n songs
+
+// Newcomers -- people who are just playing their first song (with a given cooldown) get priority
+var newcomers = [];
 
 // Current values
 var currentUser = ''
@@ -161,6 +167,7 @@ function login(user, password) {
 			tempSongs.push('');
 			skipVotes.push(false);
 			songsSinceInactive.push(0);
+			newcomerTime.push(0);
 			return true;
 		}
 		else {
@@ -201,8 +208,17 @@ function togglePlaylist(user, password) {
 				// Remove if they had a temporary song planned
 				//var idex = userQueueOrder.indexOf(user);
 				//userQueueOrder.splice(idx, 1);
-				// Add to user queue
-				userQueueOrder.push(user);
+				// Make sure the user isn't already in the queue (from a temporary song)
+				if (userQueueOrder.indexOf(user) == -1) {
+					// Add to user queue
+					userQueueOrder.push(user);
+					// Check to see if they are a newcomer
+					var time = Date.now();
+					if (time - newcomerTime[index] > NEWCOMER_COOLDOWN) {
+						newcomers.push(user);
+						newcomerTime[index] = time;
+					}
+				}
 			}
 			else {
 				// Remove from user queue
@@ -254,8 +270,12 @@ function startSong(user, songId) {
 		playlistIndices[userIndex] = (playlistIndices[userIndex]+1)%playlists[userIndex].length;
 	}
 	var time = Date.now();
+	// This is a newcomer song, so remove them from the newcomer queue now
+	if (newcomers[0] == user) {
+		newcomers.shift();
+	}
 	// If the user is inactive, increase their inactivity song count
-	if (time - lastActive[i] < INACTIVE_TIME) {
+	if (time - lastActive[userIndex] < INACTIVE_TIME) {
 		songsSinceInactive[userIndex]++;
 		if (songsSinceInactive[userIndex] > MAX_INACTIVE_SONGS) {
 			// Remove from queue!
@@ -394,6 +414,20 @@ function getUserQueue() {
 		}
 	}
 	return res;
+	//TODO: Make this one line
+}
+
+// Get newcomers
+function getNewcomers() {
+	var res = '';
+	for (var i = 0; i < newcomers.length; i++) {
+		res += newcomers[i];
+		if (i < newcomers.length - 1) {
+			res += '\\';
+		}
+	}
+	return res;
+	//TODO: Make this one line
 }
 
 // Get current DJ
@@ -424,14 +458,16 @@ function getCurrentTimeInVideo() {
 	}
 }
 
-// TODO: Update queue
+// Update queue
 function updateQueue() {
 	console.log('Start update queue');
-	console.log('Current Queue Index: '+currQueueIndex);
-	console.log('userQueueOrder: '+userQueueOrder);
+	console.log('current queue index: '+currQueueIndex);
+	console.log('user queue order: '+userQueueOrder);
 	console.log('users: '+users);
 	console.log('playlists: '+playlists);
 	console.log('indices: '+playlistIndices);
+	console.log('newcomers: '+newcomers);
+	console.log('newcomer times: '+newcomerTime);
 	
 	if (userQueueOrder.length != 0) {
 		// Use userQueueOrder along with usingPlaylist
@@ -441,8 +477,31 @@ function updateQueue() {
 		var i = (currQueueIndex+1)%userQueueOrder.length;
 		var tempSongUsers = [];
 		var cycle = 0;
+		var inNewcomers = (newcomers.length > 0);
+		var newcomerIndex = 0;
+		var newcomersPlayed = [];
 		while (uq.length < QUEUE_LENGTH && cycle < QUEUE_LENGTH) {
 			var u = userQueueOrder[i];
+			// Override with the newcomer if necessary
+			if (inNewcomers) {
+				u = newcomers[newcomerIndex];
+				newcomersPlayed.push(u);
+			}
+			else {
+				// Skip queue index for newcomers who have already played, so that they don't get multiple songs in a row. But only do it once for each newcomer.
+				var skipNext = true;
+				while (skipNext) {
+					u = userQueueOrder[i]; //Slightly redundant, but helpful to make sure we have the right user
+					var idx = newcomersPlayed.indexOf(u);
+					if (idx != -1) {
+						newcomersPlayed.splice(idx, 1);
+						i = (i+1)%userQueueOrder.length;
+					}
+					else {
+						skipNext = false;
+					}
+				}
+			}
 			var ui = users.indexOf(u);
 			if (tempSongs[ui] != '') {
 				if (usingPlaylist[ui]) {
@@ -478,9 +537,18 @@ function updateQueue() {
 					sq.push(playlists[ui][(playlistIndices[ui]+cycle)%playlists[ui].length]);
 				}
 			}
-			i = (i+1)%userQueueOrder.length;
-			if (i == 0) {
-				cycle++;
+			// Increment indices (depending on whether we are in the newcomer list or not)
+			if (inNewcomers) {
+				newcomerIndex++;
+				if (newcomerIndex == newcomers.length) {
+					inNewcomers = false;
+				}
+			}
+			else {
+				i = (i+1)%userQueueOrder.length;
+				if (i == 0) {
+					cycle++;
+				}
 			}
 		}
 		// Update the queue
@@ -520,6 +588,7 @@ function update(user, password, response) {
 			res['userList'] = getUserList();
 			res['usingPlaylist'] = usingPlaylist[index];
 			res['queue'] = getUserQueue();
+			res['newcomers'] = getNewcomers();
 			res['currentUser'] = getCurrentUser();
 			res['currentSong'] = getCurrentSong();
 			res['time'] = getCurrentTimeInVideo();
@@ -570,6 +639,12 @@ function addSong(user, password, songId, response) {
 							tempSongs[index] = songId;
 							if (userQueueOrder.indexOf(user) == -1) {
 								userQueueOrder.push(user);
+							}
+							// Check to see if newcomer
+							var time = Date.now();
+							if (time - newcomerTime[index] > NEWCOMER_COOLDOWN) {
+								newcomers.push(user);
+								newcomerTime[index] = time;
 							}
 							console.log('Temp song added to queue');
 							updateQueue();
@@ -716,11 +791,18 @@ function addSongToPlaylist(user, password, songId, response) {
 										}
 									}
 								}
-								if (usingPlaylist[index] && playlists[index].length == 1) {
+								// Make sure the user isn't already in the user queue order
+								if (usingPlaylist[index] && playlists[index].length == 1 && userQueueOrder.indexOf(user) == -1) {
 									// This song was just added to an empty, active playlist
 									// So add this user to the queue
 									console.log('Adding to user queue order because this is the first song added to an active playlist');
 									userQueueOrder.push(user);
+									// Check to see if newcomer
+									var time = Date.now();
+									if (time - newcomerTime[index] > NEWCOMER_COOLDOWN) {
+										newcomers.push(user);
+										newcomerTime[index] = time;
+									}
 								}
 								if (finished-failed > 0) {
 									updateQueue();
@@ -759,6 +841,12 @@ function addSongToPlaylist(user, password, songId, response) {
 								// So add this user to the queue
 								console.log('Adding to user queue order because this is the first song added to an active playlist');
 								userQueueOrder.push(user);
+								// Check to see if newcomer
+								var time = Date.now();
+								if (time - newcomerTime[index] > NEWCOMER_COOLDOWN) {
+									newcomers.push(user);
+									newcomerTime[index] = time;
+								}
 							}
 							if (finished-failed > 0) {
 								updateQueue();

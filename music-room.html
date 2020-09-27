@@ -185,13 +185,14 @@
 					// Parse the JSON reponse
 					//console.log(xhttp.responseText);
 					var res = JSON.parse(xhttp.responseText);
-					// Update current DJ, DJ list, user list, and playlist index
+					// Update current DJ, DJ list, newcomer list, user list, and playlist index
 					document.getElementById('djcurr').innerHTML = res['currentUser'];
 					updateDJList(res['queue']);
+					updateNewcomerList(res['newcomers']);
 					updateUserList(res['userList']);
 					updatePlaylistActiveSong(parseInt(res['playlistIndex']));
+					// Show the current state of whether the playlist is active
 					var toggleEl = document.getElementById('toggleplaylist');
-					// Maybe?
 					if (res['usingPlaylist']) {
 						toggleEl.innerHTML = 'Deactivate';
 					}
@@ -289,11 +290,22 @@
 		function updateDJList(listText) {
 			var djlist = listText.split('\\');
 			for (var i = 0; i < 10; i++) {
-				let v = ''
+				let v = '';
 				if (i < djlist.length) {
-					v = djlist[i]
+					v = djlist[i];
 				}
-				document.getElementById('dj'+i).innerHTML = v
+				document.getElementById('dj'+i).innerHTML = v;
+			}
+		}
+		
+		function updateNewcomerList(listText) {
+			var newcomerlist = listText.split('\\');
+			for (var i = 0; i < 3; i++) {
+				let v = '';
+				if (i < newcomerlist.length) {
+					v = newcomerlist[i];
+				}
+				document.getElementById('new'+i).innerHTML = v;
 			}
 		}
 		
@@ -624,6 +636,12 @@
 						<li id="dj9"></li>
 					</ol>
 					<br>
+					<h4 style="text-align: left;">Newcomers:</h4>
+					<ol>
+						<li id="new0"></li>
+						<li id="new1"></li>
+						<li id="new2"></li>
+					</ol>
 					<h4>Temporary Song</h4>
 					<p>Enter an ID to add a temporary song:</p>
 					<input id="tempsongid" type="text" name="tempsongid" maxlength="50"></input>
@@ -664,8 +682,6 @@
 			<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
 			<li>Mobile version now seems to work, but requires clicking the video twice at the start</li>
 			<li>Mobile version characters for playlist rearrangements oddly sized compared to desktop version</li>
-			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins? Still not sure what happened with that bug, haven't been able to reproduce it (maybe fixed?)</li>
-			<li>Same song repeating over and over maybe can cause problems (maybe fixed?)</li>
 			<li>Next up undefined can happen, at which point everything is broken I guess (maybe fixed?)</li>
 		</ul>
 	</body>
