@@ -122,9 +122,11 @@ var passwords = []; // plaintext
 var lastActive = [];
 var usingPlaylist = [];
 var playlists = []; // Youtube IDs
-var playlistsCommon = []; // More descriptive titles
-var playlistIndices = [];
+var playlistsNames = []; // More descriptive titles
+var playlistsDurations = [] // Durations to not have to run many searches
+var playlistIndices = []; // Actually gives the next song to play for each user. Need to somehow get the index of the current song as well, knowing that it may be impossible.
 var tempSongs = [];
+var tempSongDurations = [];
 var skipVotes = [];
 var songsSinceInactive = [];
 var newcomerTime = []; // For newcomer cooldown
@@ -135,6 +137,7 @@ var userQueueOrder = [];
 
 var userQueue = []; // Calculated next n players
 var songIdQueue = []; // Calculated next n songs
+var timeQueue = []; // Calculated duration of next n songs (currently only used internally, but could give total user order queue duration
 
 // Newcomers -- people who are just playing their first song (with a given cooldown) get priority
 var newcomers = [];
@@ -143,9 +146,14 @@ var newcomers = [];
 var currentUser = ''
 var currentSongUrl = '';
 var currentSongId = '';
+var currentSongDuration = 0; //TODO: Currently not used
 var timeStarted = '';
 var ended = true;
 var skipping = false;
+
+// These are some weirdly special cases, but good to keep track of.
+var currentSongDeleted = false;
+var playingTempSong = false;
 
 var timer = null;
 
@@ -163,8 +171,10 @@ function login(user, password) {
 			usingPlaylist.push(false);
 			playlistIndices.push(0);
 			playlists.push([]);
-			playlistsCommon.push([]);
+			playlistsNames.push([]);
+			playlistsDurations.push([]);
 			tempSongs.push('');
+			tempSongDurations.push(0);
 			skipVotes.push(false);
 			songsSinceInactive.push(0);
 			newcomerTime.push(0);
@@ -223,10 +233,16 @@ function togglePlaylist(user, password) {
 			else {
 				// Remove from user queue
 				var idx = userQueueOrder.indexOf(user);
-				if (currQueueIndex >= idx) {
-					currQueueIndex = (currQueueIndex-1)%userQueueOrder.length;
-				}
 				userQueueOrder.splice(idx, 1);
+				// TODO: Deleting the queue order at the current index is an issue
+				if (currQueueIndex == idx) {
+					// Actually, this may not be a problem.
+					console.log('Uncontrolled problem - deleted queue order at current index');
+					// Leave unchanged...
+				}
+				else if (currQueueIndex > idx) {
+					currQueueIndex--;
+				}
 				if (userQueueOrder.length == 0) {
 					currQueueIndex = 0;
 				}
@@ -246,17 +262,21 @@ function togglePlaylist(user, password) {
 }
 
 // Start a song
-function startSong(user, songId) {
+function startSong(user, songId, songDuration) {
 	console.log('Start of start song');
 	ended = false;
+	currentSongDeleted = false;
 	currentUser = user;
 	currentSongId = songId;
 	currentSongUrl = 'https://www.youtube.com/watch?v=' + songId;
+	currentSongDuration = songDuration;
 	currQueueIndex = (currQueueIndex+1)%userQueueOrder.length;
 	var userIndex = users.indexOf(user);
+	playingTempSong = (tempSongs[userIndex] != '')
 	if (tempSongs[userIndex] != '') {
 		// Remove the temporary song if necessary
 		tempSongs[userIndex] = '';
+		tempSongDurations[userIndex] = 0;
 		console.log('Removing temp song');
 		if (!usingPlaylist[userIndex]) {
 			// Remove user from the queue entirely
@@ -275,14 +295,19 @@ function startSong(user, songId) {
 		newcomers.shift();
 	}
 	// If the user is inactive, increase their inactivity song count
-	if (time - lastActive[userIndex] < INACTIVE_TIME) {
+	if (time - lastActive[userIndex] > INACTIVE_TIME) {
 		songsSinceInactive[userIndex]++;
 		if (songsSinceInactive[userIndex] > MAX_INACTIVE_SONGS) {
 			// Remove from queue!
 			usingPlaylist[userIndex] = false;
 			var idx = userQueueOrder.indexOf(user);
 			userQueueOrder.splice(idx, 1);
-			if (currQueueIndex >= idx) {
+			if (currQueueIndex == idx) {
+				// Actually, this may not be a problem.
+				console.log('Uncontrolled problem - deleted queue order at current index');
+				// Leave unchanged...
+			}
+			else if (currQueueIndex > idx) {
 				currQueueIndex--;
 			}
 			if (userQueueOrder.length == 0) {
@@ -291,10 +316,23 @@ function startSong(user, songId) {
 			}
 		}
 	}
+	else {
+		// Reset inactivity count
+		songsSinceInactive[userIndex] = 0;
+	}
 	// Update the queue again
 	updateQueue();
 	console.log('Song started: '+currentSongUrl+' by '+currentUser);
 	timeStarted = Date.now();
+	//var currTime = Date.now(); // Shouldn't be that different from the last time call...
+	//let diff = currTime - timeStarted;
+	let remaining = songDuration;// - diff;
+	// Start the next song at the end of this one
+	console.log('Waiting for end of song...');
+	timer = setTimeout(endSong, remaining + SONG_END_DELAY);
+	console.log('End of start song');
+	// No longer need to scrape the video length, it's stored.
+	/*
 	// Scrape video length
 	const options = new URL(currentSongUrl);
 	const req = https.get(options, (res) => {
@@ -328,7 +366,7 @@ function startSong(user, songId) {
 			console.log('Could not load video to find duration: '+currentSongUrl)
 		}
 	});
-	console.log('End of start song');
+	*/
 }
 
 // End song and go to the next one if available
@@ -340,9 +378,7 @@ function endSong() {
 	console.log('Song ended');
 	if (userQueue.length > 0) {
 		console.log('Starting next song');
-		var nextUser = userQueue[0];
-		var nextSongId = songIdQueue[0];
-		startSong(nextUser, nextSongId);
+		startSong(userQueue[0], songIdQueue[0], timeQueue[0]);
 	}
 }
 
@@ -356,8 +392,9 @@ function getPlaylist(user, password) {
 	}
 	var index = users.indexOf(user);
 	if (index != -1) {
-		var playlist = playlistsCommon[index];
+		var playlist = playlistsNames[index];
 		//console.log(playlist);
+		//TODO: This could be one line
 		var res = '';
 		for (var i = 0; i < playlist.length; i++) {
 			res += playlist[i];
@@ -366,7 +403,7 @@ function getPlaylist(user, password) {
 			}
 		}
 		console.log(res);
-		return res;
+		return JSON.stringify({'data': res, 'index': getPlaylistIndex(user, password), 'playing': (currentUser == user && !currentSongDeleted && !playingTempSong)});
 	}
 	else {
 		console.log('no user');
@@ -382,7 +419,35 @@ function getPlaylistIndex(user, password) {
 	}
 	var index = users.indexOf(user);
 	if (index != -1) {
-		return playlistIndices[index];
+		if (currentUser == user && !playingTempSong) {
+			// See if the current song playing exists in the playlist
+			// This will be the previous index
+			var idx = playlistIndices[index]-1;
+			if (idx == -1) {
+				idx = playlists[index].length-1;
+			}
+			// Special variable keeps track of whether the current song was deleted, because IDs alone can't tell if the songs are the same.
+			if (currentSongDeleted) {
+				return playlistIndices[index];
+			}
+			else {
+				return idx;
+			}
+			/*
+			// Equality of song ID is not enough.
+			if (playlists[index][idx] == currentSongId) {
+				return idx;
+			}
+			else {
+				// It must have been deleted
+				return -1;
+			}
+			*/
+		}
+		else {
+			// The next song up
+			return playlistIndices[index];
+		}
 	}
 	else {
 		return -1;
@@ -473,6 +538,7 @@ function updateQueue() {
 		// Use userQueueOrder along with usingPlaylist
 		var uq = [];
 		var sq = [];
+		var tq = [];
 		// Start at the next queue index so that it doesn't play the current person twice when new people join in
 		var i = (currQueueIndex+1)%userQueueOrder.length;
 		var tempSongUsers = [];
@@ -510,6 +576,7 @@ function updateQueue() {
 						// Temp song not added yet
 						uq.push(u);
 						sq.push(tempSongs[ui]);
+						tq.push(tempSongDurations[ui]);
 						tempSongUsers.push(u);
 					}
 					else {
@@ -517,6 +584,7 @@ function updateQueue() {
 						if (playlists[ui].length > 0) {
 							uq.push(u);
 							sq.push(playlists[ui][(playlistIndices[ui]+cycle-1)%playlists[ui].length]);
+							tq.push(playlistsDurations[ui][(playlistIndices[ui]+cycle-1)%playlists[ui].length]);
 						}
 					}
 				}
@@ -525,6 +593,7 @@ function updateQueue() {
 						// Temp song not added yet
 						uq.push(u);
 						sq.push(tempSongs[ui]);
+						tq.push(tempSongDurations[ui]);
 						tempSongUsers.push(u);
 					}
 					// Otherwise, no other songs, so no other places in queue
@@ -535,6 +604,7 @@ function updateQueue() {
 				if (playlists[ui].length > 0) {
 					uq.push(u);
 					sq.push(playlists[ui][(playlistIndices[ui]+cycle)%playlists[ui].length]);
+					tq.push(playlistsDurations[ui][(playlistIndices[ui]+cycle)%playlists[ui].length]);
 				}
 			}
 			// Increment indices (depending on whether we are in the newcomer list or not)
@@ -554,12 +624,13 @@ function updateQueue() {
 		// Update the queue
 		userQueue = uq;
 		songIdQueue = sq;
+		timeQueue = tq;
 		console.log(userQueue);
 		console.log(songIdQueue);
 		// If no song is playing, start the next one
 		if (ended) {
 			console.log('No song playing, so starting next song');
-			startSong(userQueue[0], songIdQueue[0]);
+			startSong(userQueue[0], songIdQueue[0], timeQueue[0]);
 		}
 	}
 	else {
@@ -590,6 +661,7 @@ function update(user, password, response) {
 			res['queue'] = getUserQueue();
 			res['newcomers'] = getNewcomers();
 			res['currentUser'] = getCurrentUser();
+			res['playing'] = (user == currentUser && !currentSongDeleted && !playingTempSong);
 			res['currentSong'] = getCurrentSong();
 			res['time'] = getCurrentTimeInVideo();
 			//res['playlist'] = getPlaylist(user, password); //This one could be considerably longer
@@ -637,6 +709,7 @@ function addSong(user, password, songId, response) {
 						if (arr_emb != null && arr_emb.length > 1 && arr_emb[1] == 'true') {
 							var index = users.indexOf(user);
 							tempSongs[index] = songId;
+							tempSongDurations[index] = parseInt(arr[1]);
 							if (userQueueOrder.indexOf(user) == -1) {
 								userQueueOrder.push(user);
 							}
@@ -699,9 +772,11 @@ function addSongToPlaylist(user, password, songId, response) {
 			// Placeholder lists for loading multiple songs
 			var is_valid = [];
 			var temp_names = [];
+			var temp_durations = [];
 			for (var i = 0; i < songIds.length; i++) {
 				is_valid.push(false);
 				temp_names.push('');
+				temp_durations.push(0);
 			}
 			// Let solves the whole async problem here...
 			for (let i = 0; i < songIds.length; i++) {
@@ -711,20 +786,18 @@ function addSongToPlaylist(user, password, songId, response) {
 				const options = new URL(testSongUrl);
 				const req = https.get(options, (res) => {
 					if (res.statusCode == 200) {
-						console.log('songIds: '+songIds);
 						res.setEncoding('utf8');
 						var resstr = '';
 						res.on('data', function(chunk) {
 							resstr += chunk;
 						});
 						res.on('end', function() {
-							console.log('SongIds: '+songIds);
-							console.log('i: '+i);
-							console.log('Got html of song');
+							console.log('Got html of song ' + i);
 							let re = /approxDurationMs\\\":\\\"([0-9]+)\\\"/;
 							var arr = resstr.match(re);
 							if (arr != null && arr.length > 1) {
 								// Verify that video is embeddable
+								temp_durations[i] = parseInt(arr[1]);
 								let re_emb = /playableInEmbed\\\":([a-z]+),/;
 								var arr_emb = resstr.match(re_emb);
 								if (arr_emb != null && arr_emb.length > 1 && arr_emb[1] == 'true') {
@@ -740,12 +813,12 @@ function addSongToPlaylist(user, password, songId, response) {
 										console.log(songTitle);
 										//console.log(songTitle.length);
 										temp_names[i] = songTitle;
-										//playlistsCommon[index].push(songTitle);
-										//console.log(playlistsCommon);
+										//playlistsNames[index].push(songTitle);
+										//console.log(playlistsNames);
 									}
 									else {
 										temp_names[i] = songIds[i];
-										//playlistsCommon[index].push(songIds[i]);
+										//playlistsNames[index].push(songIds[i]);
 										feedback += 'Could not find title.';
 									}
 									console.log('Added song: '+songIds[i]);
@@ -779,17 +852,23 @@ function addSongToPlaylist(user, password, songId, response) {
 									feedback += ' '+(100*(finished-failed)/finished)+'%'
 								}
 								// Add all the songs to the playlist here
+								var appendIndex = playlists[index].length;
 								for (var j = 0; j < songIds.length; j++) {
 									if (is_valid[j]) {
 										if (playlists[index].length < MAX_PLAYLIST_SIZE) {
 											playlists[index].push(songIds[j]);
-											playlistsCommon[index].push(temp_names[j]);
+											playlistsNames[index].push(temp_names[j]);
+											playlistsDurations[index].push(temp_durations[j]);
 										}
 										else {
 											console.log(user + ' reached max playlist size');
 											feedback = 'You have reached the maximum playlist size.';
 										}
 									}
+								}
+								// Fix the index so it doesn't reset to zero when adding songs while the last one is playing
+								if (playlistIndices[index] == 0 && user == currentUser && playlists[index].length < MAX_PLAYLIST_SIZE) {
+									playlistIndices[index] = appendIndex;
 								}
 								// Make sure the user isn't already in the user queue order
 								if (usingPlaylist[index] && playlists[index].length == 1) {
@@ -819,6 +898,7 @@ function addSongToPlaylist(user, password, songId, response) {
 						//response.writeHead(200);
 						//response.end(feedback);
 						failed++;
+						// TODO: Having the same code here twice is a bit annoying.
 						finished++;
 						if (finished == songIds.length) {
 							console.log('Finished adding to playlist, but badly');
@@ -826,17 +906,23 @@ function addSongToPlaylist(user, password, songId, response) {
 							if (songIds.length != 1) {
 								feedback += ' '+(100*(finished-failed)/finished)+'%'
 							}
+							var appendIndex = playlists[index].length;
 							for (var j = 0; j < songIds.length; j++) {
 								if (is_valid[j]) {
 									if (playlists[index].length < MAX_PLAYLIST_SIZE) {
 										playlists[index].push(songIds[j]);
-										playlistsCommon[index].push(temp_names[j]);
+										playlistsNames[index].push(temp_names[j]);
+										playlistsDurations[index].push(temp_durations[j]);
 									}
 									else {
 										console.log(user + ' reached max playlist size');
 										feedback = 'You have reached the maximum playlist size.';
 									}
 								}
+							}
+							// Fix the index so it doesn't reset to zero when adding songs while the last one is playing
+							if (playlistIndices[index] == 0 && user == currentUser && playlists[index].length < MAX_PLAYLIST_SIZE) {
+								playlistIndices[index] = appendIndex;
 							}
 							if (usingPlaylist[index] && playlists[index].length == 1) {
 								// This song was just added to an empty, active playlist
@@ -891,9 +977,26 @@ function deleteFromPlaylist(user, password, idx) {
 		else {
 			// Delete
 			playlists[index].splice(idx, 1);
-			playlistsCommon[index].splice(idx, 1);
-			if (playlistIndices[index] >= idx) {
+			playlistsNames[index].splice(idx, 1);
+			playlistsDurations[index].splice(idx, 1);
+			// TODO: Deleting the song currently playing is an issue
+			// Because the index gives the next cued song, index - 1 is what we want
+			// Note the edge case has idx == length, when the last element is deleted
+			if (user == currentUser && !currentSongDeleted && (idx == playlistIndices[index]-1 || (playlistIndices[index] == 0 && idx == playlists[index].length))) {
+				//console.log('Uncontrolled problem - deleted song at current index');
+				currentSongDeleted = true;
+				// Okay, this is finally right.
 				playlistIndices[index]--;
+				if (playlistIndices[index] == -1) {
+					playlistIndices[index] = playlists[index].length-2;
+				}
+			}
+			else if (playlistIndices[index] > idx) {
+				playlistIndices[index]--;
+			}
+			else if (playlistIndices[index] == idx && idx == playlists[index].length) {
+				// Yet another edge case.
+				playlistIndices[index] = 0;
 			}
 			if (playlists[index].length == 0) {
 				playlistIndices[index] = 0;
@@ -901,7 +1004,13 @@ function deleteFromPlaylist(user, password, idx) {
 				var tidx = userQueueOrder.indexOf(user);
 				if (tidx != -1) {
 					userQueueOrder.splice(tidx, 1);
-					if (currQueueIndex >= tidx) {
+					// TODO: Deleting the queue order at the current index is an issue
+					if (currQueueIndex == tidx) {
+						// Actually, this may not be a problem.
+						console.log('Uncontrolled problem - deleted queue order at current index');
+						// Leave unchanged...
+					}
+					else if (currQueueIndex > tidx) {
 						currQueueIndex--;
 					}
 					if (userQueueOrder.length == 0) {
@@ -940,7 +1049,8 @@ function moveSong(user, password, i, j) {
 			if (i >= 0 && i < playlists[index].length && j >= 0 && j < playlists[index].length) {
 				// Move the songs
 				arrayMove(playlists[index], i, j);
-				arrayMove(playlistsCommon[index], i, j);
+				arrayMove(playlistsNames[index], i, j);
+				arrayMove(playlistsDurations[index], i, j);
 				// Update the queue now
 				updateQueue();
 			}
@@ -1301,3 +1411,18 @@ http.createServer(function (request, response) {
 }).listen(port);
 
 console.log("listening on port "+port);
+
+/*
+Known bugs
+<li>Temporary songs only allow you to play one song, so if you a second temporary song before your temporary song plays, the new one will overwrite it</li>
+<li>Title of video does not show on mobile</li>
+<li>Subtitles/annotations/quality/more videos can only be accessed in fullscreen mode</li>
+<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
+<li>Mobile version now seems to work, but requires clicking the video twice at the start</li>
+<li>Mobile version characters for playlist rearrangements oddly sized compared to desktop version</li>
+<li>Next up undefined can happen, at which point everything is broken I guess (maybe fixed?)</li>
+
+<li>Current highlighted active song may be incorrect</li>
+<li>Playlist could be formatted better</li>
+<li>Tabbing over will re-seek the video, causing a bit of a blip if already playing</li>
+*/

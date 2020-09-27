@@ -1,11 +1,14 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 	<head>
 		<meta charset="utf-8">
 		<title>Music Room</title>
 		<meta name="description" content="Music Room">
 		<meta name="author" content="Sean O'Neil">
 		<style>
+        * {
+    box-sizing: border-box;
+}
 		body {
 			text-align: center;
 			background-color: #000000;
@@ -44,21 +47,28 @@
 		button {
 			background-color: #404040;
 			color: #FFFFFF;
-			font-size: 20px;
+			font-size: 1.3em;
 		}
 		.del, .toTop, .toBottom {
-			font-size: 18px;
+			font-size: 1.3em;
 		}
 		.up, .down {
-			font-size: 21px;
-		}
-		.activeSong {
-			font-size: 20px;
-			font-weight: bold;
+			font-size: 1.3em;
 		}
 		.inactiveSong {
 			font-size: 20px;
 			font-weight: normal;
+			font-style: normal;
+		}
+		.activeSong {
+			font-size: 20px;
+			font-style: italic;
+			font-weight: normal;
+		}
+		.playingSong {
+			font-size: 20px;
+			font-style: italic;
+			font-weight: bold;
 		}
 		.iframeWrapperSmall {
 			display: inline-block;
@@ -96,6 +106,15 @@
 		#playlist {
 			height: 400px;
 			overflow-y: scroll;
+			list-style-type: none;
+			margin-right:5px;
+			margin-left:0px;
+		}
+		#playlistdiv {
+			background-image: linear-gradient(rgba(255,255,255,0), rgba(255,255,255,.5))
+		}
+		hr {
+			width: 50%;
 		}
 		.responseOff {
 			font-size: 20px;
@@ -172,6 +191,7 @@
 		var lastTime = 0;
 		var playlistSize = 0;
 		var lastActiveIndex = -1;
+		var nowPlaying = false;
 		
 		function init() {
 			getPlaylist();
@@ -187,6 +207,7 @@
 					var res = JSON.parse(xhttp.responseText);
 					// Update current DJ, DJ list, newcomer list, user list, and playlist index
 					document.getElementById('djcurr').innerHTML = res['currentUser'];
+					nowPlaying = res['playing'];
 					updateDJList(res['queue']);
 					updateNewcomerList(res['newcomers']);
 					updateUserList(res['userList']);
@@ -213,9 +234,16 @@
 		}
 		
 		function updatePlaylistActiveSong(index) {
-			var el = document.getElementById('list'+index);
-			if (el != null) {
-				el.className = 'activeSong';
+			if (index != -1) {
+				var el = document.getElementById('list'+index);
+				if (el != null) {
+					if (nowPlaying) {
+						el.className = 'playingSong';
+					}
+					else {
+						el.className = 'activeSong';
+					}
+				}
 			}
 			if (lastActiveIndex != -1 && index != lastActiveIndex) {
 				var el_last = document.getElementById('list'+lastActiveIndex);
@@ -253,13 +281,23 @@
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
 				if (this.readyState == 4 && this.status == 200) {
-					if (xhttp.responseText != '') {
-						var playlist = xhttp.responseText.split('\\');
+					var res = JSON.parse(xhttp.responseText);
+					console.log('Playlist data: ' +xhttp.responseText);
+					if (res['data'] != '') {
+						lastActiveIndex = res['index'];
+						nowPlaying = res['playing'];
+						var playlist = res['data'].split('\\');
 						playlistSize = playlist.length;
-						console.log('Playlist: ' +playlist);
 						var playlisttext = '';
 						for (var i = 0; i < playlistSize; i++) {
-							playlisttext += "<li><button class=\"del\" id=\"del"+i+"\" onclick=\"remove("+i+")\">❌</button><button class=\"toTop\" id=\"toTop"+i+"\" onclick=\"moveToTop("+i+")\">⏫</button><button class=\"up\" id=\"up"+i+"\" onclick=\"moveUp("+i+")\">▲</button><button class=\"down\" id=\"down"+i+"\" onclick=\"moveDown("+i+")\">▼</button><button class=\"toBottom\" id=\"toBottom"+i+"\" onclick=\"moveToBottom("+i+")\">⏬</button>&nbsp;<span id=\"list"+i+"\" class=\"inactiveSong\">"+playlist[i]+"</span></li>"
+							var tempClassName = 'inactiveSong';
+							if (i == lastActiveIndex) {
+								tempClassName = 'activeSong';
+								if (nowPlaying) {
+									tempClassName = 'playingSong';
+								}
+							}
+							playlisttext += '<li><button title="Delete" class="del" id="del'+i+'" onclick="remove('+i+')">X</button><button title="Move to Top" class="toTop" id="toTop'+i+'" onclick="moveToTop('+i+')">&#8607;</button><button title="Move Up" class="up" id="up'+i+'" onclick="moveUp('+i+')">&#8593;</button><button title="Move Down" class="down" id="down'+i+'" onclick="moveDown('+i+')">&#8595;</button><button title="Move to Bottom" class="toBottom" id="toBottom'+i+'" onclick="moveToBottom('+i+')">&#8609;</button><br><span id="list'+i+'" class="'+tempClassName+'">'+playlist[i]+'</span></li><hr>'
 						}
 						document.getElementById('playlist').innerHTML = playlisttext;
 						enableButtons();
@@ -330,8 +368,8 @@
 					else {
 						console.log('Changing song');
 						currentSong = newSong;
-						// Change title
-						document.head.title.innerHTML = currentSong;
+						// Change title (this is just the song ID and not the actual title of the song)
+						//document.head.title.innerHTML = currentSong;
 						// Mute added to align with Google's policies about autoplay
 						document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=1&autoplay=1&mute='+muted+'&start=' + newTime;
 					}
@@ -339,8 +377,8 @@
 					unpausing = false; // Has to be set here or it will be asynchronously reset too early!
 				}
 				else if (currentSong != 'https://www.youtube.com/embed/') {
-					// Change title
-					document.head.title.innerHTML = 'Music Room';
+					// Change title (back, only needed if the title changed...)
+					//document.head.title.innerHTML = 'Music Room';
 					lastTime = 0;
 					currentSong = newSong;
 					document.getElementById('player').src = currentSong;
@@ -651,8 +689,8 @@
 						<li id="new2"></li>
 					</ol>
 					<h4>Temporary Song</h4>
-					<p>Enter an ID to add a temporary song:</p>
-					<input id="tempsongid" type="text" name="tempsongid" maxlength="50"></input>
+					<p>Enter a URL to add a temporary song:</p>
+					<input id="tempsongid" type="text" name="tempsongid" maxlength="50">
 					<button id="addbutton" onclick="add()">Submit</button>
 					<p class="responseOff" id="responsetemp">&nbsp;</p>
 					<button onclick="voteSkip()">Vote to Skip</button>
@@ -672,7 +710,7 @@
 					<br>
 					<h4>Add to Playlist</h4>
 					<!--<p>Enter an ID to add to your list:</p>-->
-					<input id="songid" type="text" name="songid" maxlength="1199"></input>
+					<input id="songid" type="text" name="songid" maxlength="1199">
 					<button id="listaddbutton" onclick="listAdd()">Submit</button>
 					<p class="responseOff" id="response">&nbsp;</p>
 					<button onclick="savePlaylist()">Save Playlist</button><!--<button onclick="loadPlaylist()">Load Playlist</button>-->
@@ -680,7 +718,7 @@
 			</tr>
 			<tr>
 				<td colspan="3">
-				<p>Users: <span id="users"></span></p>
+                    <p><b>Users:</b> <span id="users"></span></p>
 				</td>
 			</tr>
 		</table>
@@ -693,6 +731,10 @@
 			<li>Mobile version now seems to work, but requires clicking the video twice at the start</li>
 			<li>Mobile version characters for playlist rearrangements oddly sized compared to desktop version</li>
 			<li>Next up undefined can happen, at which point everything is broken I guess (maybe fixed?)</li>
+
+			<li>Playlist could be formatted better</li>
+			<li>Tabbing over will re-seek the video, causing a bit of a blip if already playing</li>
+			<li>Newest person is not added to the user queue order in the correct position, but rather just at the end</li>
 		</ul>
 	</body>
 </html>
