@@ -191,15 +191,12 @@
 					updateUserList(res['userList']);
 					updatePlaylistActiveSong(parseInt(res['playlistIndex']));
 					var toggleEl = document.getElementById('toggleplaylist');
+					// Maybe?
 					if (res['usingPlaylist']) {
-						if (toggleEl.innerHTML != 'Deactivating...') {
-							toggleEl.innerHTML = 'Deactivate';
-						}
+						toggleEl.innerHTML = 'Deactivate';
 					}
 					else {
-						if (toggleEl.innerHTML != 'Activating...') {
-							toggleEl.innerHTML = 'Activate';
-						}
+						toggleEl.innerHTML = 'Activate';
 					}
 					// Update the current song, but only if not paused
 					if (!paused) {
@@ -255,20 +252,21 @@
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
 				if (this.readyState == 4 && this.status == 200) {
-					var playlist = xhttp.responseText.split('\\');
-					playlistSize = playlist.length;
-					if (playlist.length > 0 && playlist[0] != '') {
-						console.log(playlist);
+					if (xhttp.responseText != '') {
+						var playlist = xhttp.responseText.split('\\');
+						playlistSize = playlist.length;
+						console.log('Playlist: ' +playlist);
 						var playlisttext = '';
 						for (var i = 0; i < playlistSize; i++) {
 							playlisttext += "<li><button class=\"del\" id=\"del"+i+"\" onclick=\"remove("+i+")\">❌</button><button class=\"toTop\" id=\"toTop"+i+"\" onclick=\"moveToTop("+i+")\">⏫</button><button class=\"up\" id=\"up"+i+"\" onclick=\"moveUp("+i+")\">▲</button><button class=\"down\" id=\"down"+i+"\" onclick=\"moveDown("+i+")\">▼</button><button class=\"toBottom\" id=\"toBottom"+i+"\" onclick=\"moveToBottom("+i+")\">⏬</button>&nbsp;<span id=\"list"+i+"\" class=\"inactiveSong\">"+playlist[i]+"</span></li>"
 						}
 						document.getElementById('playlist').innerHTML = playlisttext;
+						enableButtons();
 					}
 					else {
+						playlistSize = 0;
 						document.getElementById('playlist').innerHTML = '';
 					}
-					enableButtons();
 				}
 			};
 			xhttp.open('GET', 'playlist?name='+name+'&password='+password, true);
@@ -350,10 +348,12 @@
 						clearTimeout(fadeTimerA);
 					}
 					fadeTimerA = setTimeout(function() { setResponseVisible(el, false); }, MESSAGE_DURATION);
+					document.getElementById('addbutton').disabled = false;
 				}
 			};
 			xhttp.open('GET', 'add?name='+name+'&password='+password+'&songId='+songId, true);
 			xhttp.send();
+			document.getElementById('addbutton').disabled = true;
 			var el = document.getElementById('responsetemp');
 			el.innerHTML = 'Loading...';
 			setResponseVisible(el, true);
@@ -374,10 +374,12 @@
 					}
 					fadeTimerB = setTimeout(function() { setResponseVisible(el, false); }, MESSAGE_DURATION);
 					getPlaylist();
+					document.getElementById('listaddbutton').disabled = false;
 				}
 			};
 			xhttp.open('GET', 'listadd?name='+name+'&password='+password+'&songId='+songId, true);
 			xhttp.send();
+			document.getElementById('listaddbutton').disabled = true;
 			var el = document.getElementById('response');
 			el.innerHTML = 'Loading...';
 			setResponseVisible(el, true);
@@ -385,25 +387,25 @@
 		
 		function togglePlaylist() {
 			var el = document.getElementById('toggleplaylist');
-			if (el.innerHTML == 'Activating' || el.innerHTML == 'Deactivating') {
-				// Pressing the button too fast...
+			if (el.innerHTML == 'Activate') {
+				el.innerHTML = 'Activating...';
 			}
 			else {
-				if (el.innerHTML == 'Activate') {
-					el.innerHTML = 'Activating...';
-				}
-				else {
-					el.innerHTML = 'Deactivating...';
-				}
-				var xhttp = new XMLHttpRequest();
-				xhttp.onreadystatechange = function() {
-					if (this.readyState == 4 && this.status == 200) {
-						//TODO: Maybe don't change the button if there was an error? Idk
-					}
-				};
-				xhttp.open('GET', 'toggle?name='+name+'&password='+password, true);
-				xhttp.send();
+				el.innerHTML = 'Deactivating...';
 			}
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					var res = xhttp.responseText;
+					if (res == 'Activate' || res == 'Deactivate') {
+						el.disabled = false;
+					}
+					el.innerHTML = res;
+				}
+			};
+			xhttp.open('GET', 'toggle?name='+name+'&password='+password, true);
+			xhttp.send();
+			el.disabled = true;
 		}
 		
 		// Helps prevent extra rearranging while the server is still processing it
@@ -525,19 +527,21 @@
 		}
 		
 		function savePlaylist() {
-			var xhttp = new XMLHttpRequest();
-			xhttp.onreadystatechange = function() {
-				if (this.readyState == 4 && this.status == 200) {
-					//Download a txt file
-					if (xhttp.responseText != '') {
-						var data = new Blob([xhttp.responseText], {type: 'text/plain'});
-						var url = window.URL.createObjectURL(data);
-						window.open(url, '_blank');
+			if (playlistSize > 0) {
+				var xhttp = new XMLHttpRequest();
+				xhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						//Download a txt file
+						if (xhttp.responseText != '') {
+							var data = new Blob([xhttp.responseText], {type: 'text/plain'});
+							var url = window.URL.createObjectURL(data);
+							window.open(url, '_blank');
+						}
 					}
-				}
-			};
-			xhttp.open('GET', 'save?name='+name+'&password='+password, true);
-			xhttp.send();
+				};
+				xhttp.open('GET', 'save?name='+name+'&password='+password, true);
+				xhttp.send();
+			}
 			
 		}
 		
@@ -623,7 +627,7 @@
 					<h4>Temporary Song</h4>
 					<p>Enter an ID to add a temporary song:</p>
 					<input id="tempsongid" type="text" name="tempsongid" maxlength="50"></input>
-					<button onclick="add()">Submit</button>
+					<button id="addbutton" onclick="add()">Submit</button>
 					<p class="responseOff" id="responsetemp">&nbsp;</p>
 					<button onclick="voteSkip()">Vote to Skip</button>
 				</td>
@@ -643,7 +647,7 @@
 					<h4>Add to Playlist</h4>
 					<!--<p>Enter an ID to add to your list:</p>-->
 					<input id="songid" type="text" name="songid" maxlength="1199"></input>
-					<button onclick="listAdd()">Submit</button>
+					<button id="listaddbutton" onclick="listAdd()">Submit</button>
 					<p class="responseOff" id="response">&nbsp;</p>
 					<button onclick="savePlaylist()">Save Playlist</button><!--<button onclick="loadPlaylist()">Load Playlist</button>-->
 				</td>
@@ -663,7 +667,6 @@
 			<li>Queue does not alternate correctly if temporary songs are used? or multiple logins? Still not sure what happened with that bug, haven't been able to reproduce it (maybe fixed?)</li>
 			<li>Same song repeating over and over maybe can cause problems (maybe fixed?)</li>
 			<li>Next up undefined can happen, at which point everything is broken I guess (maybe fixed?)</li>
-			<li>Activate/deactivate may be swapped sometimes (maybe fixed?)</li>
 		</ul>
 	</body>
 </html>

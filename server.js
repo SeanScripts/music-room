@@ -183,22 +183,20 @@ function validateUser(user, password) {
 
 // Activate or deactivate the playlist for a user
 function togglePlaylist(user, password) {
-	console.log('Start toggle playlist');
+	console.log('Toggle playlist');
 	var valid = validateUser(user, password);
 	if (!valid) {
 		return 'Not logged in';
 	}
 	var index = users.indexOf(user);
-	var message = '';
 	if (index == -1) {
-		message = 'No user with that name.'; // Unreachable
+		return 'No user with that name.'; // Unreachable
 	}
 	else {
 		usingPlaylist[index] = !usingPlaylist[index];
+		var value = usingPlaylist[index];
 		playlistIndices[index] = 0; // Reset playlist to start
 		if (playlists[index].length > 0) {
-			var value = usingPlaylist[index];
-			message = 'Using playlist: '+value;
 			if (value) {
 				// Remove if they had a temporary song planned
 				//var idex = userQueueOrder.indexOf(user);
@@ -225,9 +223,10 @@ function togglePlaylist(user, password) {
 			message = 'You do not have any songs in your playlist.';
 		}
 		*/
+		var retval = (value) ? 'Deactivate' :  'Activate';
+		//console.log(retval);
+		return retval;
 	}
-	console.log('End toggle playlist');
-	return message;
 }
 
 // Start a song
@@ -875,7 +874,7 @@ function voteSkip(user, password, reason) {
 			if (reason != 'null' && reason != 'Reason for skipping (optional, for debug)') {
 				console.log('Reason for skipping: '+reason);
 			}
-			if (!skipping) {
+			if (!skipping && !ended) {
 				skipVotes[index] = true;
 				var total = 0;
 				var votes = 0;
@@ -901,7 +900,7 @@ function voteSkip(user, password, reason) {
 				}
 			}
 			else {
-				// Don't let them try to skip if it's already currently skipping
+				// Don't let them try to skip if it's already currently skipping or not playing anything
 				return false;
 			}
 		}
