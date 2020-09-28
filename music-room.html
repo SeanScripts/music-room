@@ -28,12 +28,29 @@
 			margin-top: 2px;
 			margin-bottom: 2px;
 		}
+		/*
 		ol {
 			margin-top: 3px;
 			margin-bottom: 3px;
+			margin-left: 2px;
+			margin-right: 0px;
+			padding-left: 0px;
+			padding-right: 0px;
 		}
-		li {
+		*/
+		li.djlistitem {
 			text-align: left;
+			margin-left: 0px;
+			margin-right: 0px;
+			padding-left: 0px;
+			padding-right: 0px;
+		}
+		li.playlistitem {
+			/* text-align: left; */
+			margin-left: 0px;
+			margin-right: 0px;
+			padding-left: 0px;
+			padding-right: 0px;
 		}
 		.maintable {
 			width: 100%;
@@ -49,24 +66,33 @@
 			color: #FFFFFF;
 			font-size: 1.3em;
 		}
-		.del, .toTop, .toBottom {
+		.del, .toTop, .toBottom, .up, .down {
 			font-size: 1.3em;
-		}
-		.up, .down {
-			font-size: 1.3em;
+			width: 18%;
+			background-color: rgba(255, 255, 255, .2);
+			border-color: rgb(255, 255, 255);
+			text-shadow: 1px 1px 4px #000000;
+			margin-top: 5px;
+			vertical-align: top;
+			height: 45px;
+			margin-left: 0px;
+			margin-right: 0px;
 		}
 		.inactiveSong {
-			font-size: 20px;
+			text-align: left;
+			font-size: 1.1em;
 			font-weight: normal;
 			font-style: normal;
 		}
 		.activeSong {
-			font-size: 20px;
+			text-align: left;
+			font-size: 1.1em;
 			font-style: italic;
 			font-weight: normal;
 		}
 		.playingSong {
-			font-size: 20px;
+			text-align: left;
+			font-size: 1.1em;
 			font-style: italic;
 			font-weight: bold;
 		}
@@ -103,11 +129,20 @@
 		iframe {
 			vertical-align: top;
 		}
+		/* ol */
 		#playlist {
 			height: 400px;
 			overflow-y: scroll;
 			list-style-type: none;
-			margin-right:5px;
+			margin-right: 0px;
+			margin-left: 0px;
+			padding-left: 0px;
+		}
+		#djlist {
+			height: 400px;
+			overflow-y: scroll;
+			list-style-type: none;
+			margin-right:0px;
 			margin-left:0px;
 		}
 		#playlistdiv {
@@ -297,7 +332,7 @@
 									tempClassName = 'playingSong';
 								}
 							}
-							playlisttext += '<li><button title="Delete" class="del" id="del'+i+'" onclick="remove('+i+')">X</button><button title="Move to Top" class="toTop" id="toTop'+i+'" onclick="moveToTop('+i+')">&#8607;</button><button title="Move Up" class="up" id="up'+i+'" onclick="moveUp('+i+')">&#8593;</button><button title="Move Down" class="down" id="down'+i+'" onclick="moveDown('+i+')">&#8595;</button><button title="Move to Bottom" class="toBottom" id="toBottom'+i+'" onclick="moveToBottom('+i+')">&#8609;</button><br><span id="list'+i+'" class="'+tempClassName+'">'+playlist[i]+'</span></li><hr>'
+							playlisttext += '<li class="playlistitem"><div id="list'+i+'" class="'+tempClassName+'">'+playlist[i]+'</div><button title="Delete" class="del" id="del'+i+'" onclick="remove('+i+')">X</button><button title="Move to Top" class="toTop" id="toTop'+i+'" onclick="moveToTop('+i+')">&#8607;</button><button title="Move Up" class="up" id="up'+i+'" onclick="moveUp('+i+')">&#8593;</button><button title="Move Down" class="down" id="down'+i+'" onclick="moveDown('+i+')">&#8595;</button><button title="Move to Bottom" class="toBottom" id="toBottom'+i+'" onclick="moveToBottom('+i+')">&#8609;</button></li><hr>'
 						}
 						document.getElementById('playlist').innerHTML = playlisttext;
 						enableButtons();
@@ -356,8 +391,11 @@
 					// TODO: Update this to use the Youtube API better
 					if (currentSong == newSong) {
 						if (player != null) {
-							// Seek to the right time in video (this should be faster than reloading the video)
-							player.seekTo(newTime, true);
+							console.log('Player state: '+player.getPlayerState());
+							if (player.getPlayerState() == -1) {
+								// Seek to the right time in video (this should be faster than reloading the video)
+								player.seekTo(newTime, true);
+							}
 						}
 						else {
 							// Fall back on what I know works
@@ -669,24 +707,24 @@
 				<td id="queuebox" width="25%">
 					<h3>Current DJ: <span id="djcurr">None</span></h3>
 					<h4 style="text-align: left;">Next up:</h4>
-					<ol>
-						<li id="dj0"></li>
-						<li id="dj1"></li>
-						<li id="dj2"></li>
-						<li id="dj3"></li>
-						<li id="dj4"></li>
-						<li id="dj5"></li>
-						<li id="dj6"></li>
-						<li id="dj7"></li>
-						<li id="dj8"></li>
-						<li id="dj9"></li>
+					<ol class="djlist">
+						<li class="djlistitem" id="dj0"></li>
+						<li class="djlistitem" id="dj1"></li>
+						<li class="djlistitem" id="dj2"></li>
+						<li class="djlistitem" id="dj3"></li>
+						<li class="djlistitem" id="dj4"></li>
+						<li class="djlistitem" id="dj5"></li>
+						<li class="djlistitem" id="dj6"></li>
+						<li class="djlistitem" id="dj7"></li>
+						<li class="djlistitem" id="dj8"></li>
+						<li class="djlistitem" id="dj9"></li>
 					</ol>
 					<br>
 					<h4 style="text-align: left;">Newcomers:</h4>
-					<ol>
-						<li id="new0"></li>
-						<li id="new1"></li>
-						<li id="new2"></li>
+					<ol class="djlist">
+						<li class="djlistitem" id="new0"></li>
+						<li class="djlistitem" id="new1"></li>
+						<li class="djlistitem" id="new2"></li>
 					</ol>
 					<h4>Temporary Song</h4>
 					<p>Enter a URL to add a temporary song:</p>
@@ -704,6 +742,17 @@
 					<h3>Playlist</h3>
 					<div id="playlistdiv">
 						<ol id="playlist">
+							<!--
+							<li class="playlistitem">
+								<div id="list0" class="activeSong">Test Song</div>
+								<button title="Delete" class="del" id="del0" onclick="remove(0)">X</button>
+								<button title="Move to Top" class="toTop" id="toTop0" onclick="moveToTop(0)">&#8607;</button>
+								<button title="Move Up" class="up" id="up0" onclick="moveUp(0)">&#8593;</button>
+								<button title="Move Down" class="down" id="down0" onclick="moveDown(0)">&#8595;</button>
+								<button title="Move to Bottom" class="toBottom" id="toBottom0" onclick="moveToBottom(0)">&#8609;</button>
+							</li>
+							<hr>
+							-->
 						</ol>
 					</div>
 					<button id="toggleplaylist" onclick="togglePlaylist()">Activate</button>
@@ -724,17 +773,13 @@
 		</table>
 		<h5>Bugs</h5>
 		<ul>
-			<li>Temporary songs only allow you to play one song, so if you a second temporary song before your temporary song plays, the new one will overwrite it</li>
+			<li>Temporary songs only allow you to play one song, so if you a second temporary song before your temporary song plays, the new one will overwrite it (not exactly a bug, because that was how temporary songs were meant to be used)</li>
 			<li>Title of video does not show on mobile</li>
 			<li>Subtitles/annotations/quality/more videos can only be accessed in fullscreen mode</li>
 			<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
 			<li>Mobile version now seems to work, but requires clicking the video twice at the start</li>
-			<li>Mobile version characters for playlist rearrangements oddly sized compared to desktop version</li>
+			<li>Mobile version special characters for playlist rearrangements are a tad small</li>
 			<li>Next up undefined can happen, at which point everything is broken I guess (maybe fixed?)</li>
-
-			<li>Playlist could be formatted better</li>
-			<li>Tabbing over will re-seek the video, causing a bit of a blip if already playing</li>
-			<li>Newest person is not added to the user queue order in the correct position, but rather just at the end</li>
 		</ul>
 	</body>
 </html>

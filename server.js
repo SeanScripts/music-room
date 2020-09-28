@@ -132,7 +132,7 @@ var songsSinceInactive = [];
 var newcomerTime = []; // For newcomer cooldown
 
 // Order of the users to cycle through
-var currQueueIndex = 0;
+//var currQueueIndex = 0;
 var userQueueOrder = [];
 
 var userQueue = []; // Calculated next n players
@@ -222,6 +222,12 @@ function togglePlaylist(user, password) {
 				if (userQueueOrder.indexOf(user) == -1) {
 					// Add to user queue
 					userQueueOrder.push(user);
+					// Insert in the correct position?
+					/*
+					var idx = currQueueIndex;
+					userQueueOrder.splice(idx, 0, user);
+					currQueueIndex++;
+					*/
 					// Check to see if they are a newcomer
 					var time = Date.now();
 					if (time - newcomerTime[index] > NEWCOMER_COOLDOWN && newcomers.indexOf(user) == -1) {
@@ -235,6 +241,7 @@ function togglePlaylist(user, password) {
 				var idx = userQueueOrder.indexOf(user);
 				userQueueOrder.splice(idx, 1);
 				// TODO: Deleting the queue order at the current index is an issue
+				/*
 				if (currQueueIndex == idx) {
 					// Actually, this may not be a problem.
 					console.log('Uncontrolled problem - deleted queue order at current index');
@@ -246,6 +253,7 @@ function togglePlaylist(user, password) {
 				if (userQueueOrder.length == 0) {
 					currQueueIndex = 0;
 				}
+				*/
 			}
 			// In either case, update the temporary Queue
 			updateQueue();
@@ -261,6 +269,14 @@ function togglePlaylist(user, password) {
 	}
 }
 
+function cycleOrder() {
+	var newOrder = [];
+	for (var i = 0; i < userQueueOrder.length; i++) {
+		newOrder.push(userQueueOrder[(i+1)%userQueueOrder.length]);
+	}
+	userQueueOrder = newOrder;
+}
+
 // Start a song
 function startSong(user, songId, songDuration) {
 	console.log('Start of start song');
@@ -270,7 +286,9 @@ function startSong(user, songId, songDuration) {
 	currentSongId = songId;
 	currentSongUrl = 'https://www.youtube.com/watch?v=' + songId;
 	currentSongDuration = songDuration;
-	currQueueIndex = (currQueueIndex+1)%userQueueOrder.length;
+	//TODO: Use a cyclic queue instead of keeping a current queue index
+	cycleOrder();
+	//currQueueIndex = (currQueueIndex+1)%userQueueOrder.length;
 	var userIndex = users.indexOf(user);
 	playingTempSong = (tempSongs[userIndex] != '')
 	if (tempSongs[userIndex] != '') {
@@ -302,6 +320,8 @@ function startSong(user, songId, songDuration) {
 			usingPlaylist[userIndex] = false;
 			var idx = userQueueOrder.indexOf(user);
 			userQueueOrder.splice(idx, 1);
+			//TODO: Delete from the user queue order
+			/*
 			if (currQueueIndex == idx) {
 				// Actually, this may not be a problem.
 				console.log('Uncontrolled problem - deleted queue order at current index');
@@ -314,6 +334,7 @@ function startSong(user, songId, songDuration) {
 				// This is the last song
 				currQueueIndex = 0;
 			}
+			*/
 		}
 	}
 	else {
@@ -526,7 +547,7 @@ function getCurrentTimeInVideo() {
 // Update queue
 function updateQueue() {
 	console.log('Start update queue');
-	console.log('current queue index: '+currQueueIndex);
+	//console.log('current queue index: '+currQueueIndex);
 	console.log('user queue order: '+userQueueOrder);
 	console.log('users: '+users);
 	console.log('playlists: '+playlists);
@@ -540,7 +561,8 @@ function updateQueue() {
 		var sq = [];
 		var tq = [];
 		// Start at the next queue index so that it doesn't play the current person twice when new people join in
-		var i = (currQueueIndex+1)%userQueueOrder.length;
+		var i = 1%userQueueOrder.length;
+		//var i = (currQueueIndex+1)%userQueueOrder.length;
 		var tempSongUsers = [];
 		var cycle = 0;
 		var inNewcomers = (newcomers.length > 0);
@@ -661,7 +683,7 @@ function update(user, password, response) {
 			res['queue'] = getUserQueue();
 			res['newcomers'] = getNewcomers();
 			res['currentUser'] = getCurrentUser();
-			res['playing'] = (user == currentUser && !currentSongDeleted && !playingTempSong);
+			res['playing'] = (user == getCurrentUser() && !currentSongDeleted && !playingTempSong);
 			res['currentSong'] = getCurrentSong();
 			res['time'] = getCurrentTimeInVideo();
 			//res['playlist'] = getPlaylist(user, password); //This one could be considerably longer
@@ -712,6 +734,12 @@ function addSong(user, password, songId, response) {
 							tempSongDurations[index] = parseInt(arr[1]);
 							if (userQueueOrder.indexOf(user) == -1) {
 								userQueueOrder.push(user);
+								// Insert in the correct position?
+								/*
+								var idx = currQueueIndex;
+								userQueueOrder.splice(idx, 0, user);
+								currQueueIndex++;
+								*/
 							}
 							// Check to see if newcomer
 							var time = Date.now();
@@ -867,7 +895,7 @@ function addSongToPlaylist(user, password, songId, response) {
 									}
 								}
 								// Fix the index so it doesn't reset to zero when adding songs while the last one is playing
-								if (playlistIndices[index] == 0 && user == currentUser && playlists[index].length < MAX_PLAYLIST_SIZE) {
+								if (playlistIndices[index] == 0 && user == getCurrentUser() && playlists[index].length < MAX_PLAYLIST_SIZE) {
 									playlistIndices[index] = appendIndex;
 								}
 								// Make sure the user isn't already in the user queue order
@@ -877,6 +905,12 @@ function addSongToPlaylist(user, password, songId, response) {
 									if (userQueueOrder.indexOf(user) == -1) {
 										console.log('Adding to user queue order because this is the first song added to an active playlist');
 										userQueueOrder.push(user);
+										// Insert in the correct position?
+										/*
+										var idx = currQueueIndex;
+										userQueueOrder.splice(idx, 0, user);
+										currQueueIndex++;
+										*/
 										// Check to see if newcomer
 										var time = Date.now();
 										if (time - newcomerTime[index] > NEWCOMER_COOLDOWN && newcomers.indexOf(user) == -1) {
@@ -921,7 +955,7 @@ function addSongToPlaylist(user, password, songId, response) {
 								}
 							}
 							// Fix the index so it doesn't reset to zero when adding songs while the last one is playing
-							if (playlistIndices[index] == 0 && user == currentUser && playlists[index].length < MAX_PLAYLIST_SIZE) {
+							if (playlistIndices[index] == 0 && user == getCurrentUser() && playlists[index].length < MAX_PLAYLIST_SIZE) {
 								playlistIndices[index] = appendIndex;
 							}
 							if (usingPlaylist[index] && playlists[index].length == 1) {
@@ -930,6 +964,12 @@ function addSongToPlaylist(user, password, songId, response) {
 								if (userQueueOrder.indexOf(user) == -1) {
 									console.log('Adding to user queue order because this is the first song added to an active playlist');
 									userQueueOrder.push(user);
+									// Insert in the correct position?
+									/*
+									var idx = currQueueIndex;
+									userQueueOrder.splice(idx, 0, user);
+									currQueueIndex++;
+									*/
 									// Check to see if newcomer
 									var time = Date.now();
 									if (time - newcomerTime[index] > NEWCOMER_COOLDOWN && newcomers.indexOf(user) == -1) {
@@ -982,7 +1022,7 @@ function deleteFromPlaylist(user, password, idx) {
 			// TODO: Deleting the song currently playing is an issue
 			// Because the index gives the next cued song, index - 1 is what we want
 			// Note the edge case has idx == length, when the last element is deleted
-			if (user == currentUser && !currentSongDeleted && (idx == playlistIndices[index]-1 || (playlistIndices[index] == 0 && idx == playlists[index].length))) {
+			if (user == getCurrentUser() && !currentSongDeleted && (idx == playlistIndices[index]-1 || (playlistIndices[index] == 0 && idx == playlists[index].length))) {
 				//console.log('Uncontrolled problem - deleted song at current index');
 				currentSongDeleted = true;
 				// Okay, this is finally right.
@@ -1005,6 +1045,7 @@ function deleteFromPlaylist(user, password, idx) {
 				if (tidx != -1) {
 					userQueueOrder.splice(tidx, 1);
 					// TODO: Deleting the queue order at the current index is an issue
+					/*
 					if (currQueueIndex == tidx) {
 						// Actually, this may not be a problem.
 						console.log('Uncontrolled problem - deleted queue order at current index');
@@ -1016,6 +1057,7 @@ function deleteFromPlaylist(user, password, idx) {
 					if (userQueueOrder.length == 0) {
 						currQueueIndex = 0;
 					}
+					*/
 				}
 				else {
 					console.log('User not in queue somehow');
