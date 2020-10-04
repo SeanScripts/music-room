@@ -227,6 +227,7 @@
 		var playlistSize = 0;
 		var lastActiveIndex = -1;
 		var nowPlaying = false;
+		var currentSongName = '';
 		
 		function init() {
 			getPlaylist();
@@ -261,6 +262,8 @@
 					}
 					// Update the time on the song, regardless of whether it is paused
 					lastTime = parseInt(res['time']);
+					currentSongName = res['songName'];
+					document.getElementById('songname').innerHTML = currentSongName;
 					console.log(lastTime);
 				}
 			};
@@ -392,7 +395,8 @@
 					if (currentSong == newSong) {
 						if (player != null) {
 							console.log('Player state: '+player.getPlayerState());
-							if (player.getPlayerState() == -1) {
+							if (player.getPlayerState() == -1 || player.getPlayerState() == 0) {
+								console.log('Seeking in same song');
 								// Seek to the right time in video (this should be faster than reloading the video)
 								player.seekTo(newTime, true);
 							}
@@ -410,6 +414,14 @@
 						//document.head.title.innerHTML = currentSong;
 						// Mute added to align with Google's policies about autoplay
 						document.getElementById('player').src = currentSong + '?enablejsapi=1&controls=1&autoplay=1&mute='+muted+'&start=' + newTime;
+						if (player != null) {
+							console.log('Player state: '+player.getPlayerState());
+							if (player.getPlayerState() == -1 || player.getPlayerState() == 0) {
+								console.log('Seeking in new song');
+								// Seek to the right time in video (this should be faster than reloading the video)
+								player.seekTo(newTime, true);
+							}
+						}
 					}
 					setWrapperSize(false);
 					unpausing = false; // Has to be set here or it will be asynchronously reset too early!
@@ -701,6 +713,7 @@
 			<tr>
 				<td colspan="3">
 					<h1>Music Room</h1>
+					<h3 id="songname"></h3>
 				</td>
 			</tr>
 			<tr>
@@ -777,7 +790,7 @@
 			<li>Title of video does not show on mobile</li>
 			<li>Subtitles/annotations/quality/more videos can only be accessed in fullscreen mode</li>
 			<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
-			<li>Mobile version now seems to work, but requires clicking the video twice at the start</li>
+			<li>Mobile version now seems to work, but requires clicking the video twice at the start of each video, and does not synchronize properly</li>
 			<li>Mobile version special characters for playlist rearrangements are a tad small</li>
 			<li>Next up undefined can happen, at which point everything is broken I guess (maybe fixed?)</li>
 		</ul>

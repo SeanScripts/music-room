@@ -127,6 +127,7 @@ var playlistsDurations = [] // Durations to not have to run many searches
 var playlistIndices = []; // Actually gives the next song to play for each user. Need to somehow get the index of the current song as well, knowing that it may be impossible.
 var tempSongs = [];
 var tempSongDurations = [];
+var tempSongNames = [];
 var skipVotes = [];
 var songsSinceInactive = [];
 var newcomerTime = []; // For newcomer cooldown
@@ -138,6 +139,7 @@ var userQueueOrder = [];
 var userQueue = []; // Calculated next n players
 var songIdQueue = []; // Calculated next n songs
 var timeQueue = []; // Calculated duration of next n songs (currently only used internally, but could give total user order queue duration
+var nameQueue = []; // Calculated next n song names
 
 // Newcomers -- people who are just playing their first song (with a given cooldown) get priority
 var newcomers = [];
@@ -146,6 +148,7 @@ var newcomers = [];
 var currentUser = ''
 var currentSongUrl = '';
 var currentSongId = '';
+var currentSongName = '';
 var currentSongDuration = 0; //TODO: Currently not used
 var timeStarted = '';
 var ended = true;
@@ -175,6 +178,7 @@ function login(user, password) {
 			playlistsDurations.push([]);
 			tempSongs.push('');
 			tempSongDurations.push(0);
+			tempSongNames.push('');
 			skipVotes.push(false);
 			songsSinceInactive.push(0);
 			newcomerTime.push(0);
@@ -278,7 +282,7 @@ function cycleOrder() {
 }
 
 // Start a song
-function startSong(user, songId, songDuration) {
+function startSong(user, songId, songDuration, songName) {
 	console.log('Start of start song');
 	ended = false;
 	currentSongDeleted = false;
@@ -286,8 +290,7 @@ function startSong(user, songId, songDuration) {
 	currentSongId = songId;
 	currentSongUrl = 'https://www.youtube.com/watch?v=' + songId;
 	currentSongDuration = songDuration;
-	//TODO: Use a cyclic queue instead of keeping a current queue index
-	cycleOrder();
+	currentSongName = songName;
 	//currQueueIndex = (currQueueIndex+1)%userQueueOrder.length;
 	var userIndex = users.indexOf(user);
 	playingTempSong = (tempSongs[userIndex] != '')
@@ -295,6 +298,7 @@ function startSong(user, songId, songDuration) {
 		// Remove the temporary song if necessary
 		tempSongs[userIndex] = '';
 		tempSongDurations[userIndex] = 0;
+		tempSongNames[userIndex] = '';
 		console.log('Removing temp song');
 		if (!usingPlaylist[userIndex]) {
 			// Remove user from the queue entirely
@@ -309,8 +313,12 @@ function startSong(user, songId, songDuration) {
 	}
 	var time = Date.now();
 	// This is a newcomer song, so remove them from the newcomer queue now
+	// Only cycle the order if this isn't a newcomer song
 	if (newcomers[0] == user) {
 		newcomers.shift();
+	}
+	else {
+		cycleOrder();
 	}
 	// If the user is inactive, increase their inactivity song count
 	if (time - lastActive[userIndex] > INACTIVE_TIME) {
@@ -399,7 +407,7 @@ function endSong() {
 	console.log('Song ended');
 	if (userQueue.length > 0) {
 		console.log('Starting next song');
-		startSong(userQueue[0], songIdQueue[0], timeQueue[0]);
+		startSong(userQueue[0], songIdQueue[0], timeQueue[0], nameQueue[0]);
 	}
 }
 
@@ -532,6 +540,13 @@ function getCurrentSong() {
 	return 'https://www.youtube.com/embed/' + currentSongId;
 }
 
+function getCurrentSongName() {
+	if (ended) {
+		return '';
+	}
+	return currentSongName;
+}
+
 // Get current time in video for synchronization
 function getCurrentTimeInVideo() {
 	if (ended) {
@@ -560,6 +575,7 @@ function updateQueue() {
 		var uq = [];
 		var sq = [];
 		var tq = [];
+		var nq = [];
 		// Start at the next queue index so that it doesn't play the current person twice when new people join in
 		var i = 1%userQueueOrder.length;
 		//var i = (currQueueIndex+1)%userQueueOrder.length;
@@ -599,6 +615,7 @@ function updateQueue() {
 						uq.push(u);
 						sq.push(tempSongs[ui]);
 						tq.push(tempSongDurations[ui]);
+						nq.push(tempSongNames[ui]);
 						tempSongUsers.push(u);
 					}
 					else {
@@ -607,6 +624,7 @@ function updateQueue() {
 							uq.push(u);
 							sq.push(playlists[ui][(playlistIndices[ui]+cycle-1)%playlists[ui].length]);
 							tq.push(playlistsDurations[ui][(playlistIndices[ui]+cycle-1)%playlists[ui].length]);
+							nq.push(playlistsNames[ui][(playlistIndices[ui]+cycle-1)%playlists[ui].length]);
 						}
 					}
 				}
@@ -616,6 +634,7 @@ function updateQueue() {
 						uq.push(u);
 						sq.push(tempSongs[ui]);
 						tq.push(tempSongDurations[ui]);
+						nq.push(tempSongNames[ui]);
 						tempSongUsers.push(u);
 					}
 					// Otherwise, no other songs, so no other places in queue
@@ -627,6 +646,7 @@ function updateQueue() {
 					uq.push(u);
 					sq.push(playlists[ui][(playlistIndices[ui]+cycle)%playlists[ui].length]);
 					tq.push(playlistsDurations[ui][(playlistIndices[ui]+cycle)%playlists[ui].length]);
+					nq.push(playlistsNames[ui][(playlistIndices[ui]+cycle)%playlists[ui].length]);
 				}
 			}
 			// Increment indices (depending on whether we are in the newcomer list or not)
@@ -647,12 +667,13 @@ function updateQueue() {
 		userQueue = uq;
 		songIdQueue = sq;
 		timeQueue = tq;
+		nameQueue = nq;
 		console.log(userQueue);
 		console.log(songIdQueue);
 		// If no song is playing, start the next one
 		if (ended) {
 			console.log('No song playing, so starting next song');
-			startSong(userQueue[0], songIdQueue[0], timeQueue[0]);
+			startSong(userQueue[0], songIdQueue[0], timeQueue[0], nameQueue[0]);
 		}
 	}
 	else {
@@ -688,6 +709,7 @@ function update(user, password, response) {
 			res['time'] = getCurrentTimeInVideo();
 			//res['playlist'] = getPlaylist(user, password); //This one could be considerably longer
 			res['playlistIndex'] = getPlaylistIndex(user, password);
+			res['songName'] = getCurrentSongName();
 			response.writeHead(200);
 			var resText = JSON.stringify(res);
 			response.end(resText);
@@ -732,6 +754,20 @@ function addSong(user, password, songId, response) {
 							var index = users.indexOf(user);
 							tempSongs[index] = songId;
 							tempSongDurations[index] = parseInt(arr[1]);
+							// Get name, if possible
+							let re2 = /title\\\":\\\"(.*?)\\\",\\\"l/; // Lazy quantifier really helps here.
+							var arr2 = resstr.match(re2);
+							if (arr2 != null && arr2.length > 1) {
+								var songTitle = arr2[1];
+								// Remove backslashes to not mess up the list
+								songTitle = songTitle.replace(/\\u0026/g, '&'); //There may be others like this...
+								songTitle = songTitle.replace(/\\/g, '');
+								console.log(songTitle);
+								tempSongNames[index] = songTitle;
+							}
+							else {
+								tempSongNames[index] = 'Temp song (Could not find title)';
+							}
 							if (userQueueOrder.indexOf(user) == -1) {
 								userQueueOrder.push(user);
 								// Insert in the correct position?
