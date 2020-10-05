@@ -19,9 +19,11 @@ var baseDirectory = __dirname;   // or whatever base directory you want
 
 // Add files to this list that should not be accessible by users
 // Examples are this file, any other server files, database files, probably text files for notes/ideas, etc
-var blocked_paths = ['/nodetest.js', '/test.db', '/header.html', '/footer.html', '/example_secret_page.html', '/music-room.html', '/login.html'];
+// At this point it almost seems easier to only list the files which can be accessed...
+var blocked_folders = ['/node_modules/', '/.git/'];
+var blocked_paths = ['/.gitattributes', '/.gitignore', '/favicon.xcf', '/login.html', '/music-room.html', '/package', '/package-lock', '/readme.md', '/server.js'];
 
-var port = process.env.PORT || 80; // Required for Heroku. Assuming this won't just give an error.
+var port = process.env.PORT || 80; // Required for Heroku
 
 // Load in the header and footer files (which are marked as html but are somewhat incomplete)
 //var header = fs.readFileSync(baseDirectory + '/header.html').toString();
@@ -124,7 +126,7 @@ var usingPlaylist = [];
 var playlists = []; // Youtube IDs
 var playlistsNames = []; // More descriptive titles
 var playlistsDurations = [] // Durations to not have to run many searches
-var playlistIndices = []; // Actually gives the next song to play for each user. Need to somehow get the index of the current song as well, knowing that it may be impossible.
+var playlistIndices = []; // Gives the next song to play for each user
 var tempSongs = [];
 var tempSongDurations = [];
 var tempSongNames = [];
@@ -149,7 +151,7 @@ var currentUser = ''
 var currentSongUrl = '';
 var currentSongId = '';
 var currentSongName = '';
-var currentSongDuration = 0; //TODO: Currently not used
+var currentSongDuration = 0;
 var timeStarted = '';
 var ended = true;
 var skipping = false;
@@ -361,41 +363,6 @@ function startSong(user, songId, songDuration, songName) {
 	timer = setTimeout(endSong, remaining + SONG_END_DELAY);
 	console.log('End of start song');
 	// No longer need to scrape the video length, it's stored.
-	/*
-	// Scrape video length
-	const options = new URL(currentSongUrl);
-	const req = https.get(options, (res) => {
-		if (res.statusCode == 200) {
-			console.log('Start scrape length');
-			res.setEncoding('utf8');
-			var resstr = '';
-			res.on('data', (chunk) => {
-				resstr += chunk;
-			});
-			res.on('end', () => {
-				console.log('Collected html');
-				let re = /approxDurationMs\\\":\\\"([0-9]+)\\\"/;
-				var arr = resstr.match(re);
-				if (arr != null && arr.length > 1) {
-					console.log('Duration for url '+currentSongUrl+' is '+arr[1]);
-					var duration = arr[1];
-					let currTime = Date.now();
-					let diff = currTime - timeStarted;
-					let remaining = duration - diff;
-					// Start the next song at the end of this one
-					console.log('Waiting for end of song...');
-					timer = setTimeout(endSong, remaining + SONG_END_DELAY);
-				}
-				else {
-					console.log('Failed to find song duration for url: '+currentSongUrl);
-				}
-			});
-		}
-		else {
-			console.log('Could not load video to find duration: '+currentSongUrl)
-		}
-	});
-	*/
 }
 
 // End song and go to the next one if available
@@ -421,17 +388,7 @@ function getPlaylist(user, password) {
 	}
 	var index = users.indexOf(user);
 	if (index != -1) {
-		var playlist = playlistsNames[index];
-		//console.log(playlist);
-		//TODO: This could be one line
-		var res = '';
-		for (var i = 0; i < playlist.length; i++) {
-			res += playlist[i];
-			if (i < playlist.length - 1) {
-				res += '\\';
-			}
-		}
-		console.log(res);
+		var res = playlistsNames[index].join('\\');
 		return JSON.stringify({'data': res, 'index': getPlaylistIndex(user, password), 'playing': (currentUser == user && !currentSongDeleted && !playingTempSong)});
 	}
 	else {
@@ -500,28 +457,12 @@ function getUserList() {
 
 // Get user queue
 function getUserQueue() {
-	var res = '';
-	for (var i = 0; i < userQueue.length; i++) {
-		res += userQueue[i];
-		if (i < userQueue.length - 1) {
-			res += '\\';
-		}
-	}
-	return res;
-	//TODO: Make this one line
+	return userQueue.join('\\');
 }
 
 // Get newcomers
 function getNewcomers() {
-	var res = '';
-	for (var i = 0; i < newcomers.length; i++) {
-		res += newcomers[i];
-		if (i < newcomers.length - 1) {
-			res += '\\';
-		}
-	}
-	return res;
-	//TODO: Make this one line
+	return newcomers.join('\\');
 }
 
 // Get current DJ
@@ -532,7 +473,6 @@ function getCurrentUser() {
 	return currentUser;
 }
 
-// Get current song
 function getCurrentSong() {
 	if (ended) {
 		return 'https://www.youtube.com/embed/';
@@ -866,7 +806,6 @@ function addSongToPlaylist(user, password, songId, response) {
 								var arr_emb = resstr.match(re_emb);
 								if (arr_emb != null && arr_emb.length > 1 && arr_emb[1] == 'true') {
 									is_valid[i] = true;
-									//playlists[index].push(songIds[i]);
 									let re2 = /title\\\":\\\"(.*?)\\\",\\\"l/; // Lazy quantifier really helps here.
 									var arr2 = resstr.match(re2);
 									if (arr2 != null && arr2.length > 1) {
@@ -875,27 +814,14 @@ function addSongToPlaylist(user, password, songId, response) {
 										songTitle = songTitle.replace(/\\u0026/g, '&'); //There may be others like this...
 										songTitle = songTitle.replace(/\\/g, '');
 										console.log(songTitle);
-										//console.log(songTitle.length);
 										temp_names[i] = songTitle;
-										//playlistsNames[index].push(songTitle);
-										//console.log(playlistsNames);
 									}
 									else {
 										temp_names[i] = songIds[i];
-										//playlistsNames[index].push(songIds[i]);
 										feedback += 'Could not find title.';
 									}
 									console.log('Added song: '+songIds[i]);
 									console.log('Song added to playlist');
-									/*
-									if (usingPlaylist[index] && playlists[index].length == 1) {
-										// This song was just added to an empty, active playlist
-										// So add this user to the queue
-										console.log('Adding to user queue order because this is the first song added to an active playlist');
-										userQueueOrder.push(user);
-									}
-									*/
-									//updateQueue();
 								}
 								else {
 									feedback = 'Video is not embeddable.';
@@ -906,126 +832,23 @@ function addSongToPlaylist(user, password, songId, response) {
 								feedback = 'Invalid song id.';
 								failed++;
 							}
-							//response.writeHead(200);
-							//response.end(feedback);
 							finished++;
 							if (finished == songIds.length) {
-								console.log('Finished adding to playlist');
-								// This was the last one, repond here
-								if (songIds.length != 1) {
-									feedback += ' '+(100*(finished-failed)/finished)+'%'
-								}
-								// Add all the songs to the playlist here
-								var appendIndex = playlists[index].length;
-								for (var j = 0; j < songIds.length; j++) {
-									if (is_valid[j]) {
-										if (playlists[index].length < MAX_PLAYLIST_SIZE) {
-											playlists[index].push(songIds[j]);
-											playlistsNames[index].push(temp_names[j]);
-											playlistsDurations[index].push(temp_durations[j]);
-										}
-										else {
-											console.log(user + ' reached max playlist size');
-											feedback = 'You have reached the maximum playlist size.';
-										}
-									}
-								}
-								// Fix the index so it doesn't reset to zero when adding songs while the last one is playing
-								if (playlistIndices[index] == 0 && user == getCurrentUser() && playlists[index].length < MAX_PLAYLIST_SIZE) {
-									playlistIndices[index] = appendIndex;
-								}
-								// Make sure the user isn't already in the user queue order
-								if (usingPlaylist[index] && playlists[index].length == 1) {
-									// This song was just added to an empty, active playlist
-									// So add this user to the queue
-									if (userQueueOrder.indexOf(user) == -1) {
-										console.log('Adding to user queue order because this is the first song added to an active playlist');
-										userQueueOrder.push(user);
-										// Insert in the correct position?
-										/*
-										var idx = currQueueIndex;
-										userQueueOrder.splice(idx, 0, user);
-										currQueueIndex++;
-										*/
-										// Check to see if newcomer
-										var time = Date.now();
-										if (time - newcomerTime[index] > NEWCOMER_COOLDOWN && newcomers.indexOf(user) == -1) {
-											newcomers.push(user);
-											newcomerTime[index] = time;
-										}
-									}
-								}
-								if (finished-failed > 0) {
-									updateQueue();
-								}
-								response.writeHead(200);
-								response.end(feedback);
+								endAddSongs(user, index, feedback, response, finished, failed, songIds, temp_names, temp_durations, is_valid);
 							}
 						});
 					}
 					else {
 						feedback = 'Could not find URL.';
-						//response.writeHead(200);
-						//response.end(feedback);
 						failed++;
-						// TODO: Having the same code here twice is a bit annoying.
 						finished++;
 						if (finished == songIds.length) {
-							console.log('Finished adding to playlist, but badly');
-							//This was the last one, repond here
-							if (songIds.length != 1) {
-								feedback += ' '+(100*(finished-failed)/finished)+'%'
-							}
-							var appendIndex = playlists[index].length;
-							for (var j = 0; j < songIds.length; j++) {
-								if (is_valid[j]) {
-									if (playlists[index].length < MAX_PLAYLIST_SIZE) {
-										playlists[index].push(songIds[j]);
-										playlistsNames[index].push(temp_names[j]);
-										playlistsDurations[index].push(temp_durations[j]);
-									}
-									else {
-										console.log(user + ' reached max playlist size');
-										feedback = 'You have reached the maximum playlist size.';
-									}
-								}
-							}
-							// Fix the index so it doesn't reset to zero when adding songs while the last one is playing
-							if (playlistIndices[index] == 0 && user == getCurrentUser() && playlists[index].length < MAX_PLAYLIST_SIZE) {
-								playlistIndices[index] = appendIndex;
-							}
-							if (usingPlaylist[index] && playlists[index].length == 1) {
-								// This song was just added to an empty, active playlist
-								// So add this user to the queue
-								if (userQueueOrder.indexOf(user) == -1) {
-									console.log('Adding to user queue order because this is the first song added to an active playlist');
-									userQueueOrder.push(user);
-									// Insert in the correct position?
-									/*
-									var idx = currQueueIndex;
-									userQueueOrder.splice(idx, 0, user);
-									currQueueIndex++;
-									*/
-									// Check to see if newcomer
-									var time = Date.now();
-									if (time - newcomerTime[index] > NEWCOMER_COOLDOWN && newcomers.indexOf(user) == -1) {
-										newcomers.push(user);
-										newcomerTime[index] = time;
-									}
-								}
-							}
-							if (finished-failed > 0) {
-								updateQueue();
-							}
-							response.writeHead(200);
-							response.end(feedback);
+							endAddSongs(user, index, feedback, response, finished, failed, songIds, temp_names, temp_durations, is_valid);
 						}
 					}
 					
 				});
 			}
-			//response.writeHead(200);
-			//response.end(feedback);
 		}
 		else {
 			console.log('Something is wrong.');
@@ -1035,6 +858,59 @@ function addSongToPlaylist(user, password, songId, response) {
 	}
 	console.log('End add song to playlist');
 }
+
+// Having this many parameters is a bit annoying, but is is better than repeating the exact same code twice and opening up an opportunity for errors with the two parts being different.
+function endAddSongs(user, index, feedback, response, finished, failed, songIds, temp_names, temp_durations, is_valid) {
+	console.log('Finished adding to playlist');
+	//This was the last one, repond here
+	if (songIds.length != 1) {
+		feedback += ' '+(100*(finished-failed)/finished)+'%'
+	}
+	var appendIndex = playlists[index].length;
+	for (var j = 0; j < songIds.length; j++) {
+		if (is_valid[j]) {
+			if (playlists[index].length < MAX_PLAYLIST_SIZE) {
+				playlists[index].push(songIds[j]);
+				playlistsNames[index].push(temp_names[j]);
+				playlistsDurations[index].push(temp_durations[j]);
+			}
+			else {
+				console.log(user + ' reached max playlist size');
+				feedback = 'You have reached the maximum playlist size.';
+			}
+		}
+	}
+	// Fix the index so it doesn't reset to zero when adding songs while the last one is playing
+	if (playlistIndices[index] == 0 && user == getCurrentUser() && playlists[index].length < MAX_PLAYLIST_SIZE) {
+		playlistIndices[index] = appendIndex;
+	}
+	if (usingPlaylist[index] && playlists[index].length == 1) {
+		// This song was just added to an empty, active playlist
+		// So add this user to the queue
+		if (userQueueOrder.indexOf(user) == -1) {
+			console.log('Adding to user queue order because this is the first song added to an active playlist');
+			userQueueOrder.push(user);
+			// Insert in the correct position?
+			/*
+			var idx = currQueueIndex;
+			userQueueOrder.splice(idx, 0, user);
+			currQueueIndex++;
+			*/
+			// Check to see if newcomer
+			var time = Date.now();
+			if (time - newcomerTime[index] > NEWCOMER_COOLDOWN && newcomers.indexOf(user) == -1) {
+				newcomers.push(user);
+				newcomerTime[index] = time;
+			}
+		}
+	}
+	if (finished-failed > 0) {
+		updateQueue();
+	}
+	response.writeHead(200);
+	response.end(feedback);
+}
+
 
 // Delete song from playlist
 function deleteFromPlaylist(user, password, idx) {
@@ -1222,7 +1098,6 @@ function editSongName(user, password, idx, val) {
 	else {
 		var index = users.indexOf(user);
 		if (index != -1) {
-			//TODO: Find the song and edit it
 			if (idx >= 0 && idx < playlistsNames[index].length) { 
 				playlistsNames[index][idx] = val;
 				return true;
@@ -1239,13 +1114,20 @@ function editSongName(user, password, idx, val) {
 
 http.createServer(function (request, response) {
     try {
-        var pathname = url.parse(request.url).pathname;
+        var pathname = url.parse(request.url).pathname.toLowerCase();
 		//console.log('URL: '+pathname);
 		
-		//Do not allow access to blocked paths
+		//Do not allow access to blocked folders or paths
+		for (var i = 0; i < blocked_folders.length; i++) {
+			if (pathname.includes(blocked_folders[i])) {
+				console.log('Attempted to access a blocked folder');
+				response.writeHead(403); // Forbidden
+				response.end();
+			}
+		}
 		if (blocked_paths.indexOf(pathname) != -1) {
 			console.log('Attempted to access a blocked path');
-			response.writeHead(403); //403: Forbidden
+			response.writeHead(403); // Forbidden
 			response.end();
 		}
 		else {
@@ -1278,8 +1160,6 @@ http.createServer(function (request, response) {
 				}
 				else {
 					var valid = login(reqUser, reqPassword);
-					//response.writeHead(200);
-					//response.end(valid);
 					if (!valid) {
 						console.log('Failed login for user '+reqUser);
 						response.writeHead(403);
@@ -1290,54 +1170,12 @@ http.createServer(function (request, response) {
 						tmpUser = reqUser;
 						tmpPassword = reqPassword;
 						console.log('User: '+tmpUser)
-						//console.log('Password: '+tmpPassword);
 					}
 				}
 			}
 			
 			//Static requests
-			/*
-			if (pathname == '/time') {
-				//console.log('time');
-				// Get current time in song
-				response.writeHead(200);
-				response.end(''+getCurrentTimeInVideo());
-			}
-			else if (pathname == '/song') {
-				//console.log('song');
-				// Get current song
-				response.writeHead(200);
-				response.end(''+getCurrentSong());
-			}
-			else if (pathname == '/dj') {
-				//console.log('dj');
-				// Get current dj
-				response.writeHead(200);
-				response.end(''+getCurrentUser());
-			}
-			else if (pathname == '/list') {
-				//console.log('list');
-				// Get user list
-				response.writeHead(200);
-				response.end(''+getUserList());
-			}
-			else if (pathname == '/queue') {
-				//console.log('queue');
-				// Get user queue
-				response.writeHead(200);
-				response.end(''+getUserQueue());
-			}
-			else if (pathname == '/index') {
-				//console.log('index');
-				// Get index in playlist for user
-				var params = url.parse(request.url, true).query;
-				reqUser = params['name'];
-				reqPassword = params['password'];
-				var valid = getPlaylistIndex(reqUser, reqPassword);
-				response.writeHead(200);
-				response.end(valid);
-			}
-			else */ if (pathname == '/playlist') {
+			if (pathname == '/playlist') {
 				//console.log('playlist');
 				// Get playlist for user
 				var params = url.parse(request.url, true).query;
@@ -1487,16 +1325,35 @@ http.createServer(function (request, response) {
 					fileStream.on("end", function () {
 						//console.log("end");
 						console.log(pathname);
-						if (pathname == '/favicon.ico' || pathname == '/synthwave.jpg') {
-							//response.writeHead(200, {'Content-Type': 'image/x-icon'} );
-							response.writeHead(200);
-							var icon = Buffer.concat(chunks);
-							response.end(icon);
-							//console.log('Got icon');
+						// Handle content type correctly (this just avoids some pointless warnings)
+						if (pathname.endsWith('.ico')) {
+							response.writeHead(200, {'Content-Type': 'image/vnd.microsoft.icon'} );
+						}
+						else if (pathname.endsWith('.png')) {
+							response.writeHead(200, {'Content-Type': 'image/png'} );
+						}
+						else if (pathname.endsWith('.jpg')) {
+							response.writeHead(200, {'Content-Type': 'image/jpeg'} );
+						}
+						else if (pathname.endsWith('.html')) {
+							response.writeHead(200, {'Content-Type': 'text/html'} );
+						}
+						else if (pathname.endsWith('.css')) {
+							response.writeHead(200, {'Content-Type': 'text/css'} );
+						}
+						else if (pathname.endsWith('.js')) {
+							response.writeHead(200, {'Content-Type': 'text/javascript'} );
+						}
+						// Actually serve the file
+						if (pathname == '/favicon.ico' || pathname == '/favicon.png' || pathname == '/synthwave.jpg') {
+							//response.writeHead(200);
+							var img = Buffer.concat(chunks);
+							response.end(img);
 						}
 						else {
-							response.writeHead(200);
+							//response.writeHead(200);
 							fileData = Buffer.concat(chunks).toString();
+							// Replace templates
 							//fileData = fileData.replace(/\{% header %\}/g, header);
 							//fileData = fileData.replace(/\{% footer %\}/g, footer);
 							fileData = fileData.replace(/\{% name %\}/g, tmpUser);
@@ -1524,18 +1381,3 @@ http.createServer(function (request, response) {
 }).listen(port);
 
 console.log("listening on port "+port);
-
-/*
-Known bugs
-<li>Temporary songs only allow you to play one song, so if you a second temporary song before your temporary song plays, the new one will overwrite it</li>
-<li>Title of video does not show on mobile</li>
-<li>Subtitles/annotations/quality/more videos can only be accessed in fullscreen mode</li>
-<li>Clicking the unpause button in the corner will not resume to live timing, only clicking the middle of the video will</li>
-<li>Mobile version now seems to work, but requires clicking the video twice at the start</li>
-<li>Mobile version characters for playlist rearrangements oddly sized compared to desktop version</li>
-<li>Next up undefined can happen, at which point everything is broken I guess (maybe fixed?)</li>
-
-<li>Current highlighted active song may be incorrect</li>
-<li>Playlist could be formatted better</li>
-<li>Tabbing over will re-seek the video, causing a bit of a blip if already playing</li>
-*/

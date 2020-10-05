@@ -1,0 +1,165 @@
+* {
+	box-sizing: border-box;
+}
+body {
+	text-align: center;
+	background-color: #000000;
+	background-image: url('/synthwave.jpg');
+	color: #FFFFFF;
+	font-size: 20px;
+}
+h1 {
+	margin-top: 5px;
+	margin-bottom: 5px;
+}
+h3 {
+	margin-top: 3px;
+	margin-bottom: 3px;
+}
+h4 {
+	margin-top: 2px;
+	margin-bottom: 2px;
+}
+/*
+ol {
+	margin-top: 3px;
+	margin-bottom: 3px;
+	margin-left: 2px;
+	margin-right: 0px;
+	padding-left: 0px;
+	padding-right: 0px;
+}
+*/
+li.djlistitem {
+	text-align: left;
+	margin-left: 0px;
+	margin-right: 0px;
+	padding-left: 0px;
+	padding-right: 0px;
+}
+li.playlistitem {
+	/* text-align: left; */
+	margin-left: 0px;
+	margin-right: 0px;
+	padding-left: 0px;
+	padding-right: 0px;
+}
+.maintable {
+	width: 100%;
+	background-color: #000000C0;
+}
+input {
+	background-color: #808080;
+	color: #FFFFFF;
+	font-size: 20px;
+}
+button {
+	background-color: #404040;
+	color: #FFFFFF;
+	font-size: 1.3em;
+}
+.del, .toTop, .toBottom, .up, .down {
+	font-size: 1.3em;
+	width: 18%;
+	background-color: rgba(255, 255, 255, .2);
+	border-color: rgb(255, 255, 255);
+	text-shadow: 1px 1px 4px #000000;
+	margin-top: 5px;
+	vertical-align: top;
+	height: 45px;
+	margin-left: 0px;
+	margin-right: 0px;
+}
+.inactiveSong {
+	text-align: left;
+	font-size: 1.1em;
+	font-weight: normal;
+	font-style: normal;
+}
+.activeSong {
+	text-align: left;
+	font-size: 1.1em;
+	font-style: italic;
+	font-weight: normal;
+}
+.playingSong {
+	text-align: left;
+	font-size: 1.1em;
+	font-style: italic;
+	font-weight: bold;
+}
+.iframeWrapperSmall {
+	display: inline-block;
+	position: relative;
+	vertical-align: top;
+}
+.iframeWrapperSmall:after {
+	content: "";
+	position: absolute;
+	z-index: 1;
+	left: 0%;
+	top: 10%;
+	width: 100%;
+	height: 80%;
+	background-color: #80808000;
+}
+.iframeWrapperBig {
+	display: inline-block;
+	position: relative;
+	vertical-align: top;
+}
+.iframeWrapperBig:after {
+	content: "";
+	position: absolute;
+	z-index: 1;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	background-color: #80808000;
+}
+iframe {
+	vertical-align: top;
+}
+/* ol */
+#playlist {
+	height: 400px;
+	overflow-y: scroll;
+	list-style-type: none;
+	margin-right: 0px;
+	margin-left: 0px;
+	padding-left: 0px;
+}
+#djlist {
+	height: 400px;
+	overflow-y: scroll;
+	list-style-type: none;
+	margin-right:0px;
+	margin-left:0px;
+}
+#playlistdiv {
+	background-image: linear-gradient(rgba(255,255,255,0), rgba(255,255,255,.5))
+}
+hr {
+	width: 50%;
+}
+.responseOff {
+	font-size: 20px;
+	/* Fade out */
+	animation: fadeOut ease 2s;
+	opacity: 0;
+}
+.responseOn {
+	font-size: 20px;
+	/* Fade in */
+	animation: fadeIn ease 2s;
+	opacity: 1;
+}
+@keyframes fadeIn {
+	0% {opacity:0;}
+	100% {opacity:1;}
+}
+@keyframes fadeOut {
+	0% {opacity:1;}
+	100% {opacity:0;}
+}
