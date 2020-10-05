@@ -292,6 +292,36 @@
 			lastActiveIndex = index;
 		}
 		
+		function startEditSongName(index) {
+			var el = document.getElementById('list'+index);
+			if (el != null) {
+				var txt = el.innerHTML;
+				el.innerHTML = '<form onsubmit="return endEditSongName('+index+')"><input type="text" id="songName'+index+'" value="'+txt+'" maxlength="100" style="width: 100%;"/></form>'
+				el.setAttribute('onclick', '');
+			}
+		}
+		
+		function endEditSongName(index) {
+			var el = document.getElementById('list'+index);
+			if (el != null) {
+				var box = document.getElementById('songName'+index);
+				var txt = box.value;
+				el.innerHTML = txt;
+				el.setAttribute('onclick', 'startEditSongName('+index+')');
+				//TODO: Tell server the updated value
+				var xhttp = new XMLHttpRequest();
+				xhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						// Get updated playlist (don't deal with trying to rearrange the indices yourself.)
+						//getPlaylist();
+					}
+				};
+				xhttp.open('GET', 'edit?name='+name+'&password='+password+'&i='+index+'&v='+txt, true);
+				xhttp.send();
+			}
+			return false;
+		}
+		
 		function togglePause() {
 			// Only allow pause toggle when a video is actually active, otherwise the behavior will be weird.
 			if (currentSong != 'https://www.youtube.com/embed/') {
@@ -335,7 +365,7 @@
 									tempClassName = 'playingSong';
 								}
 							}
-							playlisttext += '<li class="playlistitem"><div id="list'+i+'" class="'+tempClassName+'">'+playlist[i]+'</div><button title="Delete" class="del" id="del'+i+'" onclick="remove('+i+')">X</button><button title="Move to Top" class="toTop" id="toTop'+i+'" onclick="moveToTop('+i+')">&#8607;</button><button title="Move Up" class="up" id="up'+i+'" onclick="moveUp('+i+')">&#8593;</button><button title="Move Down" class="down" id="down'+i+'" onclick="moveDown('+i+')">&#8595;</button><button title="Move to Bottom" class="toBottom" id="toBottom'+i+'" onclick="moveToBottom('+i+')">&#8609;</button></li><hr>'
+							playlisttext += '<li class="playlistitem"><div id="list'+i+'" class="'+tempClassName+'" onclick="startEditSongName('+i+')">'+playlist[i]+'</div><button title="Delete" class="del" id="del'+i+'" onclick="remove('+i+')">X</button><button title="Move to Top" class="toTop" id="toTop'+i+'" onclick="moveToTop('+i+')">&#8607;</button><button title="Move Up" class="up" id="up'+i+'" onclick="moveUp('+i+')">&#8593;</button><button title="Move Down" class="down" id="down'+i+'" onclick="moveDown('+i+')">&#8595;</button><button title="Move to Bottom" class="toBottom" id="toBottom'+i+'" onclick="moveToBottom('+i+')">&#8609;</button></li><hr>'
 						}
 						document.getElementById('playlist').innerHTML = playlisttext;
 						enableButtons();

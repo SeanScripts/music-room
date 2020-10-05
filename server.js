@@ -1213,6 +1213,30 @@ function savePlaylist(user, password) {
 	}
 }
 
+function editSongName(user, password, idx, val) {
+	console.log('Start edit song name');
+	var valid = validateUser(user, password);
+	if (!valid) {
+		return false;
+	}
+	else {
+		var index = users.indexOf(user);
+		if (index != -1) {
+			//TODO: Find the song and edit it
+			if (idx >= 0 && idx < playlistsNames[index].length) { 
+				playlistsNames[index][idx] = val;
+				return true;
+			}
+			else {
+				return false;
+			}
+		}
+		else {
+			return false;
+		}
+	}
+}
+
 http.createServer(function (request, response) {
     try {
         var pathname = url.parse(request.url).pathname;
@@ -1357,12 +1381,23 @@ http.createServer(function (request, response) {
 				response.end(''+valid);
 			}
 			else if (pathname == '/skip') {
-				// Periodic update
+				// Skip a song
 				var params = url.parse(request.url, true).query;
 				reqUser = params['name'];
 				reqPassword = params['password'];
 				var reqReason = params['reason'];
 				var valid = voteSkip(reqUser, reqPassword, reqReason);
+				response.writeHead(200);
+				response.end(''+valid);
+			}
+			else if (pathname == '/edit') {
+				// Edit song name
+				var params = url.parse(request.url, true).query;
+				reqUser = params['name'];
+				reqPassword = params['password'];
+				var reqIndex = params['i'];
+				var reqValue = params['v'];
+				var valid = editSongName(reqUser, reqPassword, reqIndex, reqValue);
 				response.writeHead(200);
 				response.end(''+valid);
 			}
