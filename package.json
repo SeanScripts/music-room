@@ -1,29 +1,19 @@
 {
-  "name": "the-music-room",
-  "version": "1.0.0",
-  "description": "A small room for friends to play music together",
-  "main": "server.js",
-  "dependencies": {
-    "sqlite3": "^5.0.0"
-  },
-  "devDependencies": {},
+  "name": "music-room",
+  "version": "0.0.0",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node ./bin/www"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/SeanScripts/music-room.git"
-  },
-  "keywords": [
-    "music"
-  ],
-  "author": "SeanScripts",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/SeanScripts/music-room/issues"
-  },
-  "homepage": "https://github.com/SeanScripts/music-room#readme",
-  "engines": {
-	"node": "12.x"
+  "dependencies": {
+    "cookie-parser": "~1.4.4",
+    "debug": "~2.6.9",
+    "ejs": "~2.6.1",
+    "express": "~4.16.1",
+    "express-session": "^1.17.1",
+    "http-errors": "~1.6.3",
+    "morgan": "~1.9.1",
+    "pbkdf2-password": "^1.2.1",
+    "serve-favicon": "^2.5.0"
   }
 }
